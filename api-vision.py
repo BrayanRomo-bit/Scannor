@@ -16,6 +16,8 @@ import json
 import numpy as np
 import time
 import os
+import sys
+import glob
 import asyncio
 import requests
 import threading 
@@ -26,13 +28,26 @@ import secrets
 import platform
 import uuid
 from dotenv import load_dotenv
-load_dotenv()
+
+# ==========================================
+# 0. BUSCADOR INTELIGENTE DE CREDENCIALES (.ENV)
+# ==========================================
+if getattr(sys, 'frozen', False):
+    directorio_base = os.path.dirname(sys.executable)
+else:
+    directorio_base = os.path.dirname(os.path.abspath(__file__))
+
+archivos_env = glob.glob(os.path.join(directorio_base, '*.env'))
+if archivos_env:
+    print(f"[*] Archivo de credenciales detectado: {os.path.basename(archivos_env[0])}")
+    load_dotenv(archivos_env[0])
+else:
+    print("[!] No se detectó archivo .env local. Se intentará Aprovisionamiento Zero-Touch.")
 
 # ==========================================
 # 1. APROVISIONAMIENTO AUTOMÁTICO (ZERO-TOUCH)
 # ==========================================
 DJANGO_PROVISION_URL = "http://127.0.0.1:8000/api/provisionar/"
-
 
 def obtener_mac_address():
     """Obtiene la dirección MAC física de la tarjeta de red (Multiplataforma)"""
@@ -40,7 +55,6 @@ def obtener_mac_address():
     mac_hex = '{:012x}'.format(mac_num)
     mac_str = ':'.join(mac_hex[i:i+2] for i in range(0, 12, 2)).upper()
     return mac_str
-
 
 def auto_provisionar():
     mac = obtener_mac_address()
@@ -71,18 +85,15 @@ def auto_provisionar():
         print("="*50 + "\n")
         return False
 
-
-# Ejecutamos el aprovisionamiento ANTES de arrancar la cámara
-if not auto_provisionar():
-    print("Deteniendo sistema por falta de credenciales...")
-    exit(1)
+# Si no existen las llaves en el entorno, intentamos descargarlas
+if not os.getenv("SCANNOR_DEVICE_ID"):
+    if not auto_provisionar():
+        print("Deteniendo sistema por falta de credenciales...")
+        exit(1)
 
 # ==========================================
 # 2. CONFIGURACIÓN Y CONSTANTES
 # ==========================================
-# os.getenv() ahora lee las credenciales que auto_provisionar() inyectó en la RAM.
-# Estos cuatro nombres deben coincidir exactamente con las claves que Django
-# devuelve en "env_data" (ver api_provisionar_dispositivo en views.py).
 DEVICE_ID = os.getenv("SCANNOR_DEVICE_ID")
 DEVICE_API_KEY = os.getenv("SCANNOR_DEVICE_KEY")
 ADMIN_API_KEY = os.getenv("SCANNOR_API_KEY")
@@ -93,8 +104,8 @@ if not all([DEVICE_ID, DEVICE_API_KEY, ADMIN_API_KEY, STREAM_TOKEN]):
     raise RuntimeError("CRÍTICO: Faltan llaves de seguridad en el entorno (DEVICE_ID, DEVICE_KEY, ADMIN o STREAM).")
 
 EDGE_PUBLIC_URL = os.getenv("EDGE_PUBLIC_URL", "http://127.0.0.1:8001").rstrip('/')
-DB_PATH = os.getenv("SCANNOR_DB_PATH", "scannor_offline.db")
-ARCHIVO_CONFIG = 'config_camaras.json'
+DB_PATH = os.path.join(directorio_base, os.getenv("SCANNOR_DB_PATH", "scannor_offline.db"))
+ARCHIVO_CONFIG = os.path.join(directorio_base, 'config_camaras.json')
 
 # --- UMBRALES DE CONSENSO TEMPORAL Y COOLDOWN ---
 CONF_THRESHOLD = float(os.getenv("QA_CONF_THRESHOLD", "0.15")) 
@@ -113,7 +124,6 @@ MAX_FAILURES_BUFFER = int(os.getenv("QA_MAX_BUFFER", "100"))
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
 state_lock = threading.Lock()
 
-
 async def verificar_api_key(api_key: str = Security(api_key_header)):
     if not secrets.compare_digest(api_key, ADMIN_API_KEY): 
         raise HTTPException(status_code=403, detail="Admin Key inválida")
@@ -130,7 +140,6 @@ def init_db():
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute('''CREATE TABLE IF NOT EXISTS inspecciones 
                      (uid TEXT PRIMARY KEY, payload TEXT, sync INTEGER DEFAULT 0, sync_retries INTEGER DEFAULT 0)''')
-
 init_db()
 
 db_queue = queue.Queue(maxsize=500) 
@@ -153,12 +162,13 @@ def img_writer_worker():
         
         fname, img_data, bbox_txt = item
         try: 
-            cv2.imwrite(os.path.join('capturas_falla', fname), img_data)
+            ruta_img = os.path.join(directorio_base, 'capturas_falla', fname)
+            cv2.imwrite(ruta_img, img_data)
             
             # Generador Automático de Etiquetas YOLO (.txt)
             if bbox_txt:
-                txt_name = fname.replace('.jpg', '.txt')
-                with open(os.path.join('capturas_falla', txt_name), 'w') as f:
+                ruta_txt = os.path.join(directorio_base, 'capturas_falla', fname.replace('.jpg', '.txt'))
+                with open(ruta_txt, 'w') as f:
                     f.write(bbox_txt + '\n')
                     
         except Exception as e: 
@@ -261,8 +271,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Motor de Visión ScannorQA Edge", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("ALLOWED_ORIGIN", "http://127.0.0.1:8000")], allow_credentials=True, allow_methods=["GET", "POST", "DELETE"], allow_headers=["*"])
 
-if not os.path.exists('capturas_falla'): os.makedirs('capturas_falla')
-app.mount("/capturas", StaticFiles(directory="capturas_falla"), name="capturas")
+ruta_capturas = os.path.join(directorio_base, 'capturas_falla')
+if not os.path.exists(ruta_capturas): os.makedirs(ruta_capturas)
+app.mount("/capturas", StaticFiles(directory=ruta_capturas), name="capturas")
 
 try:
     with open(ARCHIVO_CONFIG, 'r') as f: config_camaras = json.load(f)
@@ -278,7 +289,45 @@ class ConfiguracionHardware(BaseModel):
         return self
 
 estado_camaras = {"frontal": False, "lat_der": False, "lat_izq": False}
-model = YOLO(os.getenv("MODEL_PATH", 'best.pt'))
+
+# ==========================================
+# --- BUSCADOR DEL MODELO YOLO (CON DESCARGA OTA) ---
+# ==========================================
+ruta_modelo = os.path.join(directorio_base, os.getenv("MODEL_PATH", 'best.pt'))
+
+def actualizar_modelo_ota():
+    print("\n[*] Verificando actualizaciones del Modelo de IA en la nube...")
+    try:
+        base_url = DJANGO_API_URL.split('/api/')[0]
+        ota_url = f"{base_url}/api/descargar-modelo/"
+        
+        respuesta = requests.get(ota_url, headers={"X-Device-Auth": DEVICE_API_KEY}, stream=True, timeout=15)
+        
+        if respuesta.status_code == 200:
+            print("[*] Descargando modelo asignado... (Esto puede tomar unos minutos)")
+            with open(ruta_modelo, 'wb') as f:
+                for chunk in respuesta.iter_content(chunk_size=8192):
+                    if chunk: f.write(chunk)
+            print("[+] ¡Descarga OTA exitosa! Modelo guardado y listo.")
+        elif respuesta.status_code == 404:
+            print("[-] El servidor indica que esta cámara aún no tiene un modelo asignado.")
+        else:
+            print(f"[-] Error de conexión OTA: HTTP {respuesta.status_code}")
+    except Exception as e:
+        print(f"[-] No se pudo conectar al servidor para OTA: {e}")
+
+# Ejecutamos la búsqueda OTA antes de arrancar el motor
+actualizar_modelo_ota()
+
+if not os.path.exists(ruta_modelo):
+    print(f"CRÍTICO: No se encontró el modelo local ni se pudo descargar.")
+
+try:
+    model = YOLO(ruta_modelo)
+except Exception as e:
+    print(f"Error al cargar YOLO. Detalle: {e}")
+    model = None
+
 failures = collections.deque(maxlen=MAX_FAILURES_BUFFER)
 frame_global_codificado = None
 motor_activo = False  
@@ -351,7 +400,15 @@ def reportar_inspeccion(pieza, lote, estado, falla, confianza, t_actual):
     fname = f"Evidencia_{lote}_{falla.replace(' ','_')}_{int(t_actual)}.jpg"
 
     if estado == "Rechazado":
-        threading.Thread(target=lambda: subprocess.run(["aplay", "-q", "alarma.wav"], stderr=subprocess.DEVNULL), daemon=True).start()
+        try:
+            if platform.system() == "Windows":
+                # En Windows el wav no viene nativo, hace beep
+                import winsound
+                threading.Thread(target=lambda: winsound.Beep(1000, 500), daemon=True).start()
+            else:
+                threading.Thread(target=lambda: subprocess.run(["aplay", "-q", "alarma.wav"], stderr=subprocess.DEVNULL), daemon=True).start()
+        except:
+            pass
 
     try: 
         img_queue.put_nowait((fname, pieza["evidencia"], pieza.get("bbox_txt", "")))
@@ -384,7 +441,7 @@ def procesar_video_continuo():
         try:
             with state_lock: activo_local = motor_activo
 
-            if activo_local:
+            if activo_local and model is not None:
                 if not camaras_inicializadas:
                     for k in cams.keys():
                         if config_camaras.get(k) is not None:
@@ -579,6 +636,8 @@ def health_check():
 @app.post("/api/start", dependencies=[Security(verificar_api_key)])
 def start_motor():
     global motor_activo
+    if model is None:
+        raise HTTPException(status_code=500, detail="El modelo de IA (best.pt) no se encontró y no pudo ser descargado vía OTA.")
     with state_lock: motor_activo = True
     return {"status": "encendido"}
 
@@ -660,4 +719,9 @@ def guardar_configuracion(nueva_config: ConfiguracionHardware):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("api-vision:app", host="0.0.0.0", port=8001, reload=False)
+    import multiprocessing
+    # Vital para que PyInstaller pueda abrir sub-procesos en Windows sin crashear
+    multiprocessing.freeze_support()
+    
+    # Pasamos 'app' de forma nativa en vez del string 'api-vision:app'
+    uvicorn.run(app, host="0.0.0.0", port=8001, log_level="info")

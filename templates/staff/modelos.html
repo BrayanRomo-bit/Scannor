@@ -1,0 +1,102 @@
+{% extends 'staff/base_staff.html' %}
+
+{% block content %}
+
+<!-- ESTILOS LOCALES PARA ALERTAS (Evita errores en VS Code) -->
+<style>
+    .alerta-base {
+        padding: 12px; 
+        border-radius: 6px; 
+        font-size: 13px; 
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    .alerta-error {
+        background-color: #fee2e2; 
+        color: #991b1b; 
+        border: 1px solid #f87171;
+    }
+    .alerta-exito {
+        background-color: #d1fae5; 
+        color: #065f46; 
+        border: 1px solid #34d399;
+    }
+</style>
+
+<div class="staff-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h3 style="margin: 0;"> Repositorio Central de Inteligencia Artificial</h3>
+            <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">Sube tus modelos .pt entrenados. Las cámaras los descargarán automáticamente (OTA).</p>
+        </div>
+    </div>
+
+    <!-- MENSAJES DE ALERTA -->
+    {% if messages %}
+    <div style="margin-bottom: 15px; width: 100%;">
+        {% for message in messages %}
+        <div class="alerta-base {% if message.tags == 'error' %}alerta-error{% else %}alerta-exito{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- FORMULARIO DE SUBIDA -->
+    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
+        {% csrf_token %}
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Versión / Nombre</label>
+            <input type="text" name="version" class="form-control" placeholder="Ej. YOLOv8_Ensamblaje_v2" required style="width: 200px;">
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Industria Objetivo</label>
+            <select name="tipo_industria" class="form-control" required style="width: 180px;">
+                <option value="metales">Metalmecánica</option>
+                <option value="plasticos">Plásticos y Moldeo</option>
+                <option value="textiles">Textil</option>
+                <option value="ensamblaje">Ensamblaje General</option>
+            </select>
+        </div>
+
+        <div style="flex-grow: 1;">
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Archivo de Pesos (.pt)</label>
+            <input type="file" name="archivo" accept=".pt" required style="font-size: 13px; padding: 5px;">
+        </div>
+
+        <button type="submit" class="btn-primary" style="height: 38px; padding: 0 20px; background: #4f46e5;">☁️ Subir Modelo a la Nube</button>
+    </form>
+
+    <!-- LISTADO DE MODELOS -->
+    <table class="staff-table">
+        <thead>
+            <tr>
+                <th>Versión</th>
+                <th>Industria</th>
+                <th>Tamaño (MB)</th>
+                <th>Fecha de Subida</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for modelo in modelos %}
+            <tr>
+                <td style="font-size: 13px; font-weight: bold; color: #1e40af;">{{ modelo.version }}</td>
+                <td style="font-size: 12px;">{{ modelo.get_tipo_industria_display }}</td>
+                <td style="font-size: 12px; color: #6b7280;">{{ modelo.archivo.size|filesizeformat }}</td>
+                <td style="font-size: 12px;">{{ modelo.fecha_subida|date:"d M Y, H:i" }}</td>
+                <td>
+                    <a href="{% url 'eliminar_modelo' modelo.id %}" onclick="return confirm('¿Estás seguro de eliminar este modelo? Las cámaras que lo usan dejarán de funcionar hasta que les asignes uno nuevo.');" style="color: #dc2626; text-decoration: none; font-size: 12px; font-weight: bold;">🗑️ Eliminar</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 30px; color: #6b7280;">No hay modelos de IA en el repositorio. Sube el primer archivo .pt</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

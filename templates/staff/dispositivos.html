@@ -1,169 +1,98 @@
 {% extends 'staff/base_staff.html' %}
 
 {% block content %}
-
-<!-- ESTILOS LOCALES PARA ALERTAS (Evita errores en VS Code) -->
 <style>
-    .alerta-base {
-        padding: 12px; 
-        border-radius: 6px; 
-        font-size: 13px; 
-        font-weight: 600;
-        margin-bottom: 10px;
-    }
-    .alerta-error {
-        background-color: #fee2e2; 
-        color: #991b1b; 
-        border: 1px solid #f87171;
-    }
-    .alerta-exito {
-        background-color: #d1fae5; 
-        color: #065f46; 
-        border: 1px solid #34d399;
-    }
+    .alerta-base { padding: 12px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+    .alerta-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+    .alerta-exito { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
 </style>
 
-<!-- SECCIÓN DE DESCUBRIMIENTO DE HARDWARE (BYOD) -->
+<!-- DESCUBRIMIENTO -->
 <div class="staff-card" style="border: 2px dashed #f59e0b; background-color: #fffbeb; margin-bottom: 25px;">
     <h3 style="color: #d97706; margin-bottom: 5px;">⚠️ Radar de Dispositivos (Modo Descubrimiento)</h3>
-    <p style="font-size: 12px; color: #92400e; margin-bottom: 15px;">Equipos físicos que están intentando conectarse a ScannorQA pero no están autorizados.</p>
-    
+    <p style="font-size: 12px; color: #92400e; margin-bottom: 15px;">Equipos físicos intentando conectarse sin autorización.</p>
     <table class="staff-table" style="background: white;">
         <thead>
-            <tr>
-                <th>Dirección MAC</th>
-                <th>IP Origen</th>
-                <th>Último Intento</th>
-                <th>Acción rápida</th>
-            </tr>
+            <tr><th>Dirección MAC</th><th>IP Origen</th><th>Último Intento</th><th>Acción rápida</th></tr>
         </thead>
         <tbody>
             {% for intento in intentos_conexion %}
             <tr>
                 <td style="font-family: monospace; font-weight: bold; color: #b45309;">{{ intento.mac_address }}</td>
-                <td style="font-size: 12px;">{{ intento.ip_origen }}</td>
-                <td style="font-size: 12px;">{{ intento.ultimo_intento|date:"d M Y, H:i" }}</td>
-                <td>
-                    <button type="button" onclick="prellenarMAC('{{ intento.mac_address }}')" class="btn-primary" style="background: #f59e0b; padding: 4px 10px; font-size: 11px; border: none; cursor: pointer;">
-                        Autorizar y Registrar
-                    </button>
-                </td>
+                <td style="font-size: 12px;">{{ intento.ip_origen }}</td><td style="font-size: 12px;">{{ intento.ultimo_intento|date:"d M Y, H:i" }}</td>
+                <td><button type="button" onclick="prellenarMAC('{{ intento.mac_address }}')" class="btn-primary" style="background: #f59e0b; padding: 4px 10px; font-size: 11px; border: none;">Autorizar y Registrar</button></td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="4" style="text-align: center; padding: 20px; color: #92400e; font-size: 12px;">
-                    Ningún dispositivo nuevo detectado en la red.
-                </td>
-            </tr>
+            <tr><td colspan="4" style="text-align: center; padding: 20px; color: #92400e; font-size: 12px;">Ningún dispositivo nuevo detectado.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- FORMULARIO DE REGISTRO -->
+<!-- REGISTRO -->
 <div class="staff-card">
-    <h3>Registrar Nuevo Dispositivo Edge (Cámara)</h3>
-    
-    <!-- ALERTS / MENSAJES DE DJANGO -->
+    <h3>Registrar Nuevo Dispositivo Edge</h3>
     {% if messages %}
     <div style="margin-bottom: 15px; width: 100%;">
         {% for message in messages %}
-        <div class="alerta-base {% if message.tags == 'error' %}alerta-error{% else %}alerta-exito{% endif %}">
-            {{ message }}
-        </div>
+        <div class="alerta-base {% if message.tags == 'error' %}alerta-error{% else %}alerta-exito{% endif %}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
-
-    <p style="font-size: 12px; color: #6b7280; margin-bottom: 15px;">Al registrar la cámara, el sistema generará automáticamente su <strong>API Key de seguridad</strong> (Token de 64 caracteres) para que pueda enviar imágenes.</p>
     
     <form method="POST" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         {% csrf_token %}
-        
-        <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Nombre de la Cámara</label>
-            <input type="text" name="nombre" class="form-control" placeholder="Ej. Línea 1 - Ensamblaje" required style="width: 200px;">
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">ID Técnico</label>
-            <input type="text" name="device_id" class="form-control" placeholder="Ej. L1-EDGE-01" required style="width: 200px; font-family: monospace;">
-        </div>
-        
-        <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Dirección MAC (Zero-Touch)</label>
-            <input type="text" name="mac_address" class="form-control" placeholder="Ej. B8:27:EB:00:11:22" required style="width: 200px; font-family: monospace; text-transform: uppercase;">
-        </div>
-
-        <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Asignar a Cliente</label>
-            <select name="empresa_id" class="form-control" required style="width: 200px;">
-                <option value="">Selecciona una fábrica...</option>
-                {% for empresa in empresas %}
-                    <option value="{{ empresa.id }}">{{ empresa.nombre }}</option>
-                {% endfor %}
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Nombre</label><input type="text" name="nombre" class="form-control" required style="width: 150px;"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ID Técnico</label><input type="text" name="device_id" class="form-control" required style="width: 150px;"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">MAC Address</label><input type="text" name="mac_address" class="form-control" required style="width: 150px;"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Cliente</label>
+            <select name="empresa_id" class="form-control" required style="width: 150px;">
+                <option value="">Selecciona...</option>{% for empresa in empresas %}<option value="{{ empresa.id }}">{{ empresa.nombre }}</option>{% endfor %}
             </select>
         </div>
-
-        <!-- SELECTOR DE MODELO IA -->
-        <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Modelo de IA</label>
-            <select name="modelo_id" class="form-control" style="width: 200px;">
-                <option value="">Ninguno (Solo validación visual)</option>
-                {% for modelo in modelos %}
-                    <option value="{{ modelo.id }}">{{ modelo.version }} ({{ modelo.get_tipo_industria_display }})</option>
-                {% endfor %}
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Modelo IA</label>
+            <select name="modelo_id" class="form-control" style="width: 150px;">
+                <option value="">Ninguno</option>{% for modelo in modelos %}<option value="{{ modelo.id }}">{{ modelo.version }}</option>{% endfor %}
             </select>
         </div>
-        
-        <button type="submit" class="btn-primary" style="height: 38px; padding: 0 20px;">Generar Credenciales</button>
+        <button type="submit" class="btn-primary" style="height: 38px;">Generar Credenciales</button>
     </form>
 </div>
 
-<!-- INVENTARIO -->
+<!-- INVENTARIO CON BOTONES DE EDICIÓN -->
 <div class="staff-card">
-    <h3>Inventario de Dispositivos Edge y API Keys</h3>
+    <h3>Inventario de Dispositivos Edge</h3>
     <table class="staff-table">
         <thead>
-            <tr>
-                <th>Cámara (Nombre)</th>
-                <th>ID / MAC Address</th>
-                <th>Cliente (Fábrica)</th>
-                <th>API Key (X-Device-Auth)</th>
-                <th>Estado</th>
-            </tr>
+            <tr><th>Cámara</th><th>Cliente</th><th>Modelo IA Asignado</th><th>API Key</th><th>Acciones</th></tr>
         </thead>
         <tbody>
             {% for dispositivo in dispositivos %}
             <tr>
-                <td style="font-size: 13px;"><strong>{{ dispositivo.nombre }}</strong></td>
-                <td style="font-size: 13px; font-family: monospace; color: #4b5563;">
-                    ID: {{ dispositivo.device_id }}<br>
-                    <span style="font-size: 11px; color: #6b7280;">MAC: {{ dispositivo.mac_address|default:"N/A" }}</span>
+                <td style="font-size: 13px;">
+                    <strong>{{ dispositivo.nombre }}</strong><br>
+                    <span style="font-size: 11px; color: #6b7280; font-family: monospace;">ID: {{ dispositivo.device_id }} | MAC: {{ dispositivo.mac_address|default:"N/A" }}</span>
                 </td>
                 <td>{{ dispositivo.empresa.nombre }}</td>
-                <td style="max-width: 250px;">
-                    <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-start;">
-                        <code style="background: #f3f4f6; padding: 6px 8px; border-radius: 4px; font-size: 11px; color: #4338ca; border: 1px solid #e5e7eb; word-break: break-all; width: 100%;">
-                            {{ dispositivo.api_key }}
-                        </code>
-                        <a href="{% url 'descargar_env_dispositivo' dispositivo.id %}" style="font-size: 11px; color: #059669; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px;">
-                            ⬇️ Descargar archivo .env
-                        </a>
-                    </div>
+                <td>
+                    {% if dispositivo.modelo_asignado %}
+                        <span style="background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🧠 {{ dispositivo.modelo_asignado.version }}</span>
+                    {% else %}
+                        <span style="background: #f3f4f6; color: #6b7280; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Ninguno</span>
+                    {% endif %}
+                </td>
+                <td style="max-width: 150px;">
+                    <a href="{% url 'descargar_env_dispositivo' dispositivo.id %}" style="font-size: 11px; color: #059669; text-decoration: none; font-weight: bold; padding: 4px 8px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px;">⬇️ .env</a>
                 </td>
                 <td>
-                    {% if dispositivo.activo %}
-                    <span style="color: #16a34a; font-weight: bold;">🟢 Activo</span>
-                    {% else %}
-                    <span style="color: #6b7280; font-weight: bold;">⚪ Baja</span>
-                    {% endif %}
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <a href="{% url 'editar_dispositivo' dispositivo.id %}" class="btn-primary" style="background: #3b82f6; text-decoration: none; padding: 5px 10px; font-size: 11px;">✏️ Editar</a>
+                        <a href="{% url 'eliminar_dispositivo' dispositivo.id %}" onclick="return confirm('¿Seguro que deseas eliminar esta cámara?');" style="color: #ef4444; text-decoration: none; font-size: 11px; font-weight: bold;">🗑️ Borrar</a>
+                    </div>
                 </td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 30px; color: #6b7280;">No hay dispositivos registrados en el Hub.</td>
-            </tr>
+            <tr><td colspan="5" style="text-align: center; padding: 30px; color: #6b7280;">No hay dispositivos registrados.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -172,15 +101,7 @@
 <script>
 function prellenarMAC(mac_address) {
     const inputMac = document.querySelector('input[name="mac_address"]');
-    if (inputMac) {
-        inputMac.value = mac_address;
-        
-        inputMac.style.backgroundColor = "#ecfdf5";
-        inputMac.style.borderColor = "#10b981";
-        inputMac.style.transition = "all 0.3s ease";
-        
-        document.querySelector('input[name="nombre"]').focus();
-    }
+    if (inputMac) { inputMac.value = mac_address; inputMac.style.backgroundColor = "#ecfdf5"; document.querySelector('input[name="nombre"]').focus(); }
 }
 </script>
 {% endblock %}

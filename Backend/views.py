@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import logout
-from django.http import HttpResponse, JsonResponse
+from django.conf import settings
+from django.http import HttpResponse, JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.hashers import make_password
@@ -9,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.db import IntegrityError
 from django.conf import settings
-from .models import RegistroInspeccion, Usuario, Empresa, ValidacionHumana, Dispositivo, IntentoConexionEdge
+from .models import RegistroInspeccion, Usuario, Empresa, ValidacionHumana, Dispositivo, IntentoConexionEdge, ModeloIA
 from urllib.parse import urlparse
 from datetime import datetime
 import requests
@@ -106,6 +107,61 @@ DJANGO_API_URL=http://{host_actual}/api/guardar-falla/
     
     return response
 
+@login_required
+@user_passes_test(es_superadmin)
+def staff_modelos(request):
+    if request.method == 'POST':
+        version = request.POST.get('version')
+        tipo_industria = request.POST.get('tipo_industria')
+        descripcion = request.POST.get('descripcion', '')
+        archivo = request.FILES.get('archivo')
+
+        if archivo and archivo.name.endswith('.pt'):
+            nuevo_modelo = ModeloIA(
+                version=version,
+                tipo_industria=tipo_industria,
+                archivo=archivo
+            )
+            nuevo_modelo.save()
+            messages.success(request, f"Modelo {version} subido y listo para despliegue OTA.")
+        else:
+            messages.error(request, "Error: El archivo debe tener la extensión .pt (PyTorch/YOLO).")
+            
+        return redirect('staff_modelos')
+
+    modelos = ModeloIA.objects.all().order_by('-fecha_subida')
+    return render(request, 'staff/modelos.html', {'modelos': modelos})
+
+@login_required
+@user_passes_test(es_superadmin)
+def eliminar_modelo(request, modelo_id):
+    modelo = get_object_or_404(ModeloIA, id=modelo_id)
+    modelo.delete()
+    messages.success(request, "Modelo eliminado correctamente del repositorio central.")
+    return redirect('staff_modelos')
+
+@csrf_exempt
+def api_descargar_modelo(request):
+    api_key = request.headers.get("X-Device-Auth")
+    dispositivo = Dispositivo.objects.filter(api_key=api_key).first()
+
+    if not dispositivo:
+        return JsonResponse({"error": "No autorizado. API Key inválida."}, status=403)
+        
+    if not dispositivo.modelo_asignado or not dispositivo.modelo_asignado.archivo:
+        return JsonResponse({"error": "Esta cámara no tiene un modelo de IA asignado."}, status=404)
+
+    ruta_archivo = dispositivo.modelo_asignado.archivo.path
+    
+    if os.path.exists(ruta_archivo):
+        response = FileResponse(open(ruta_archivo, 'rb'), content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="modelo_{dispositivo.modelo_asignado.id}.pt"'
+        
+        response['X-Model-Version'] = str(dispositivo.modelo_asignado.id)
+        return response
+    else:
+        return JsonResponse({"error": "El archivo físico del modelo desapareció del servidor."}, status=500)
+
 @user_passes_test(es_superadmin)
 def staff_empresas(request):
     if request.method == 'POST':
@@ -196,6 +252,47 @@ def staff_dispositivos(request):
         'modelos': modelos_ia
     }
     return render(request, 'staff/dispositivos.html', context)
+
+@login_required
+@user_passes_test(es_superadmin)
+def editar_dispositivo(request, dispositivo_id):
+    dispositivo = get_object_or_404(Dispositivo, id=dispositivo_id)
+    
+    if request.method == 'POST':
+        dispositivo.nombre = request.POST.get('nombre')
+        dispositivo.device_id = request.POST.get('device_id')
+        dispositivo.mac_address = request.POST.get('mac_address')
+        
+        empresa_id = request.POST.get('empresa_id')
+        if empresa_id:
+            dispositivo.empresa_id = empresa_id
+            
+        modelo_id = request.POST.get('modelo_id')
+        if modelo_id:
+            dispositivo.modelo_asignado_id = modelo_id
+        else:
+            dispositivo.modelo_asignado = None
+            
+        dispositivo.save()
+        messages.success(request, f"Dispositivo '{dispositivo.nombre}' actualizado correctamente.")
+        return redirect('staff_dispositivos')
+        
+    empresas = Empresa.objects.all()
+    modelos = ModeloIA.objects.all()
+    return render(request, 'staff/editar_dispositivo.html', {
+        'dispositivo': dispositivo,
+        'empresas': empresas,
+        'modelos': modelos
+    })
+
+@login_required
+@user_passes_test(es_superadmin)
+def eliminar_dispositivo(request, dispositivo_id):
+    dispositivo = get_object_or_404(Dispositivo, id=dispositivo_id)
+    nombre = dispositivo.nombre
+    dispositivo.delete()
+    messages.success(request, f"Cámara '{nombre}' eliminada permanentemente.")
+    return redirect('staff_dispositivos')
 
 Usuario = get_user_model()
 @user_passes_test(es_superadmin)

@@ -12,7 +12,7 @@
             --bg-panel: #1f2937;
             --text-main: #f9fafb;
             --text-muted: #9ca3af;
-            --accent: #6366f1; /* Índigo para diferenciar del verde del cliente */
+            --accent: #6366f1;
             --accent-hover: #4f46e5;
         }
         
@@ -83,7 +83,7 @@
             Dispositivos Edge
         </a>
 
-        <a href="#" class="nav-link">
+        <a href="{% url 'staff_modelos' %}" class="nav-link {% if request.resolver_match.url_name == 'staff_modelos' %}active{% endif %}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
             Modelos IA (.pt)
         </a>
@@ -94,12 +94,11 @@
         <header class="topbar">
             <div class="user-profile">
                 Hola, {{ user.username }} (Ingeniero Principal)
-                <a href="#" class="btn-logout">Cerrar Sesión</a>
+                <a href="{% url 'logout' %}" class="btn-logout">Cerrar Sesión</a>
             </div>
         </header>
 
         <main class="content-wrapper">
-            <!-- AQUÍ SE INYECTARÁ EL CÓDIGO DE LAS OTRAS PANTALLAS -->
             {% block content %}
             {% endblock %}
         </main>

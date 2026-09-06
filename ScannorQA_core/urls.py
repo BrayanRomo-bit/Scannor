@@ -41,8 +41,15 @@ urlpatterns = [
     path('staff/usuarios/', views.staff_usuarios, name='staff_usuarios'),
     path('staff/empresa/toggle/<int:empresa_id>/', views.toggle_empresa, name='toggle_empresa'),
     path('staff/usuario/toggle/<int:usuario_id>/', views.toggle_usuario, name='toggle_usuario'),
+    
     path('staff/dispositivo/descargar-env/<int:dispositivo_id>/', views.descargar_env_dispositivo, name='descargar_env_dispositivo'),
+    path('staff/dispositivo/editar/<int:dispositivo_id>/', views.editar_dispositivo, name='editar_dispositivo'),
+    path('staff/dispositivo/eliminar/<int:dispositivo_id>/', views.eliminar_dispositivo, name='eliminar_dispositivo'),
     path('planta/descargar-instalador/<str:os_type>/', views.descargar_instalador, name='descargar_instalador'),
     path('api/provisionar/', views.api_provisionar_dispositivo, name='api_provisionar_dispositivo'),
+
+    path('staff/modelos/', views.staff_modelos, name='staff_modelos'),
+    path('staff/modelo/eliminar/<int:modelo_id>/', views.eliminar_modelo, name='eliminar_modelo'),
+    path('api/descargar-modelo/', views.api_descargar_modelo, name='api_descargar_modelo'),
 
 ]

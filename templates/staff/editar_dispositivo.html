@@ -1,0 +1,53 @@
+{% extends 'staff/base_staff.html' %}
+
+{% block content %}
+<div class="staff-card" style="max-width: 600px; margin: 0 auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0;">✏️ Editar Cámara: {{ dispositivo.nombre }}</h3>
+        <a href="{% url 'staff_dispositivos' %}" style="font-size: 12px; color: #4b5563; text-decoration: none; font-weight: bold;">← Volver</a>
+    </div>
+
+    <form method="POST" style="display: flex; flex-direction: column; gap: 15px;">
+        {% csrf_token %}
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Nombre de la Cámara</label>
+            <input type="text" name="nombre" class="form-control" value="{{ dispositivo.nombre }}" required style="width: 100%;">
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ID Técnico</label>
+            <input type="text" name="device_id" class="form-control" value="{{ dispositivo.device_id }}" required style="width: 100%; font-family: monospace;">
+        </div>
+        
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Dirección MAC (Para autoconexión)</label>
+            <input type="text" name="mac_address" class="form-control" value="{{ dispositivo.mac_address }}" required style="width: 100%; font-family: monospace;">
+        </div>
+
+        <div>
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Cliente Asignado</label>
+            <select name="empresa_id" class="form-control" required style="width: 100%;">
+                {% for empresa in empresas %}
+                    <option value="{{ empresa.id }}" {% if dispositivo.empresa_id == empresa.id %}selected{% endif %}>{{ empresa.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 6px;">
+            <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #166534;">🧠 Modelo de Inteligencia Artificial (Descarga OTA)</label>
+            <p style="font-size: 11px; color: #15803d; margin-bottom: 10px;">Al guardar, la cámara descargará automáticamente este modelo en su próximo reinicio.</p>
+            <select name="modelo_id" class="form-control" style="width: 100%;">
+                <option value="">Ninguno (Solo validación visual manual)</option>
+                {% for modelo in modelos %}
+                    <option value="{{ modelo.id }}" {% if dispositivo.modelo_asignado_id == modelo.id %}selected{% endif %}>
+                        {{ modelo.version }} ({{ modelo.get_tipo_industria_display }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <button type="submit" class="btn-primary" style="height: 40px; margin-top: 10px; font-size: 14px;">💾 Guardar Cambios</button>
+    </form>
+</div>
+{% endblock %}
