@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestión de Planta | ScannorQA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px; }
+        .contenedor { max-width: 900px; margin: auto; }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .btn-regresar { background: #4b5563; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-size: 13px; font-weight: 600; }
+        .btn-regresar:hover { background: #374151; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151; }
+        .form-control { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; }
+        .btn-primary { background-color: #10b981; color: white; border: none; padding: 9px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .btn-primary:hover { background-color: #059669; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
+        th { background-color: #f9fafb; color: #4b5563; }
+        .badge-quota { background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; }
+        
+        /* ALERTAS LIMPIAS */
+        .alert-error { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+        .alert-success { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor">
+        <div class="header-flex">
+            <div>
+                <h2>🏢 Gestión de Planta: {{ empresa.nombre }}</h2>
+                <p style="color: #6b7280; font-size: 13px; margin-top: 4px;">Administra las licencias y operadores asignados a tu línea de producción.</p>
+            </div>
+            <a href="{% url 'dashboard' %}" class="btn-regresar">Volver al Dashboard</a>
+        </div>
+
+        <!-- CENTRO DE DESCARGAS (NUEVO BLOQUE) -->
+        <div class="card" style="border-top: 4px solid #3b82f6;">
+            <h3 style="margin-top: 0; color: #1e3a8a;">⬇️ Centro de Descargas (Motor Edge)</h3>
+            <p style="font-size: 13px; color: #4b5563; margin-bottom: 20px;">Descarga el software oficial para las computadoras de tu fábrica y las credenciales (.env) seguras para cada cámara de tu línea.</p>
+            
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Paso 1: Instaladores -->
+                <div style="flex: 1; min-width: 280px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 10px 0; color: #334155;">Paso 1: Instalar Motor de IA</h4>
+                    <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">Descarga e instala este programa en la computadora que está conectada físicamente a la cámara en la línea de producción.</p>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <a href="{% url 'descargar_instalador' 'windows' %}" class="btn-primary" style="background: #2563eb; text-decoration: none; text-align: center;">🪟 Descargar para Windows (.exe)</a>
+                        <a href="{% url 'descargar_instalador' 'linux' %}" class="btn-primary" style="background: #475569; text-decoration: none; text-align: center;">🐧 Descargar para Linux (.sh)</a>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Credenciales de Cámaras -->
+                <div style="flex: 1; min-width: 280px; background: #f0fdf4; padding: 20px; border-radius: 8px; border: 1px solid #bbf7d0;">
+                    <h4 style="margin: 0 0 10px 0; color: #166534;">Paso 2: Credenciales de Conexión</h4>
+                    <p style="font-size: 12px; color: #15803d; margin-bottom: 15px;">Guarda el archivo <code>.env</code> de la cámara correspondiente en la misma carpeta donde instalaste el programa anterior.</p>
+                    
+                    <table style="width: 100%; font-size: 12px; background: white; border-radius: 5px; overflow: hidden; margin: 0;">
+                        {% for disp in dispositivos %}
+                        <tr>
+                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">
+                                <strong>{{ disp.nombre }}</strong><br>
+                                <span style="color: #6b7280; font-family: monospace;">{{ disp.device_id }}</span>
+                            </td>
+                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">
+                                <a href="{% url 'descargar_env_dispositivo' disp.id %}" style="background: #10b981; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">⬇️ Descargar .env</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" style="padding: 15px; text-align: center; color: #6b7280;">Aún no tienes cámaras vinculadas. Contacta a Soporte.</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TARJETA DE ESTADÍSTICAS DE LICENCIA -->
+        <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0; color: #374151;">Estado de la Licencia (Asientos Activos)</h4>
+                <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0 0;">Control de operadores permitidos por tu plan contratado.</p>
+            </div>
+            <div>
+                <span class="badge-quota">
+                    👥 Operadores Activos: {{ usuarios_activos }} / {{ limite }}
+                </span>
+            </div>
+        </div>
+
+        <!-- TARJETA PARA CREAR NUEVO OPERADOR -->
+        <div class="card">
+            <h3 style="margin-top: 0; color: #111827;">➕ Registrar Nuevo Operador</h3>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="{% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="{% url 'crear_operador' %}">
+                {% csrf_token %}
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre de Usuario</label>
+                        <input type="text" name="username" class="form-control" placeholder="Ej. operador_linea1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Correo Electrónico</label>
+                        <input type="email" name="email" class="form-control" placeholder="correo@fabrica.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Contraseña Asignada</label>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn-primary">Crear Cuenta</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- TABLA DE OPERADORES ACTUALES -->
+        <div class="card">
+            <h3 style="margin-top: 0; color: #111827;">📋 Operadores Autorizados en Planta</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Correo</th>
+                        <th>Fecha de Alta</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operadores %}
+                    <tr>
+                        <td><strong>@{{ op.username }}</strong></td>
+                        <td>{{ op.email|default:"No registrado" }}</td>
+                        <td>{{ op.date_joined|date:"d M Y" }}</td>
+                        <td>
+                            {% if op.is_active %}
+                                <span style="color: #16a34a; font-weight: bold;">🟢 Activo</span>
+                            {% else %}
+                                <span style="color: #dc2626; font-weight: bold;">🔴 Inactivo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; color: #6b7280; padding: 25px;">
+                            No hay operadores registrados todavía. Utiliza el formulario superior para agregar al primero.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>

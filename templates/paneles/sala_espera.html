@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuenta en Revisión | ScannorQA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0; padding: 0; display: flex; justify-content: center; align-items: center;
+            height: 100vh; background-color: #f3f4f6; font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .tarjeta-espera {
+            background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            text-align: center; max-width: 400px; width: 90%;
+        }
+        .icono-candado { font-size: 48px; margin-bottom: 20px; }
+        h1 { color: #111827; font-size: 24px; margin-bottom: 10px; }
+        p { color: #6b7280; font-size: 15px; line-height: 1.5; margin-bottom: 25px; }
+        .badge-amarillo {
+            display: inline-block; background: #fef3c7; color: #d97706; padding: 6px 12px;
+            border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 20px;
+        }
+        .btn-regresar {
+            display: inline-block; background-color: #4338ca; color: white; text-decoration: none;
+            padding: 10px 20px; border-radius: 6px; font-weight: 600; transition: background 0.2s;
+        }
+        .btn-regresar:hover { background-color: #3730a3; }
+    </style>
+</head>
+<body>
+    <div class="tarjeta-espera">
+        <div class="icono-candado"></div>
+        <div class="badge-amarillo">Estado: Pendiente de Aprobación</div>
+        <h1>Acceso Restringido</h1>
+        <p>Tu cuenta ha sido registrada en el sistema central, pero requiere la validación de un <strong>Ingeniero Administrador</strong> para activarse.</p>
+        <p>Por favor, notifica a tu supervisor para que apruebe tu acceso al motor Edge.</p>
+        <a href="/" class="btn-regresar">Volver al Inicio</a>
+    </div>
+</body>
+</html>

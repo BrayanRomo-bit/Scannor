@@ -1,0 +1,145 @@
+<div class="card" style="margin-top: 20px;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+    <span class="card-title">⚙️ Configuración de Hardware</span>
+    <button id="btn-escanear" class="ctrl">Escanear Puertos</button>
+  </div>
+
+  <div class="card-body">
+    <!-- Indicador de Hardware Vinculado (Integrado al flujo) -->
+    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">
+        <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Hardware Vinculado a tu Planta</span>
+        
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        {% for disp in dispositivos %}
+            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px;">
+                <span style="display: inline-block; width: 8px; height: 8px; background-color: #10B981; border-radius: 50%; box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);"></span>
+                <span style="color: #0f172a; font-size: 13px; font-weight: 600;">{{ disp.nombre }}</span>
+                <span style="color: #4338ca; font-size: 11px; font-family: monospace; background: #e0e7ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #c7d2fe;">{{ disp.device_id }}</span>
+            </div>
+        {% empty %}
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 6px; display: inline-block;">
+                <span style="color: #ef4444; font-size: 12px; font-weight: bold;">⚠️ Sin cámaras asignadas a esta empresa</span>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+
+    <!-- Selectores de cámara -->
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+      <div>
+        <label>Cam 01 (Frontal / QR):</label>
+        <select id="sel-frontal"><option value="none">Desactivada</option></select>
+        <div id="ind-frontal" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
+      </div>
+      <div>
+        <label>Cam 02 (Lateral Der):</label>
+        <select id="sel-lat-der"><option value="none">Desactivada</option></select>
+        <div id="ind-lat-der" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
+      </div>
+      <div>
+        <label>Cam 03 (Lateral Izq):</label>
+        <select id="sel-lat-izq"><option value="none">Desactivada</option></select>
+        <div id="ind-lat-izq" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
+      </div>
+    </div>
+    <button id="btn-guardar-config" class="ctrl" style="margin-top: 15px;">Guardar Mapeo</button>
+  </div>
+</div>
+
+<script>
+  // Tu script JS se mantiene idéntico aquí
+  const CONF_API_BASE = 'http://127.0.0.1:8001';
+  const CONF_ADMIN_KEY = 'admin-secret-2026'; 
+  const CONF_HEADERS = { 'X-API-Key': CONF_ADMIN_KEY };
+
+  document.addEventListener('DOMContentLoaded', () => {
+      const btnEscanear = document.getElementById('btn-escanear');
+      const btnGuardar = document.getElementById('btn-guardar-config');
+      const SELECTS_POR_ROL = { frontal: 'sel-frontal', lat_der: 'sel-lat-der', lat_izq: 'sel-lat-izq' };
+      const INDICADORES_POR_ROL = { frontal: 'ind-frontal', lat_der: 'ind-lat-der', lat_izq: 'ind-lat-izq' };
+
+      function aplicarConfigASelects(config) {
+        Object.entries(SELECTS_POR_ROL).forEach(([rol, id]) => {
+          const select = document.getElementById(id);
+          const puerto = config ? config[rol] : null;
+          if (puerto === null || puerto === undefined) { select.value = 'none'; return; }
+          const valorStr = String(puerto);
+          const yaExiste = Array.from(select.options).some(o => o.value === valorStr);
+          if (!yaExiste) {
+            const opt = document.createElement('option');
+            opt.value = valorStr; opt.text = `Puerto /dev/video${puerto} (guardado)`; select.appendChild(opt);
+          }
+          select.value = valorStr;
+        });
+      }
+
+      function actualizarIndicadores(conectada, motorActivo) {
+        Object.entries(INDICADORES_POR_ROL).forEach(([rol, id]) => {
+          const el = document.getElementById(id);
+          if (!motorActivo) { el.textContent = '⚪ Motor apagado'; el.style.color = '#888'; } 
+          else if (conectada && conectada[rol]) { el.textContent = '🟢 Conectada'; el.style.color = '#2e7d32'; } 
+          else { el.textContent = '🔴 Sin señal'; el.style.color = '#c62828'; }
+        });
+      }
+
+      async function refrescarEstado(aplicarSelects) {
+        try {
+          const res = await fetch(`${CONF_API_BASE}/api/estado-camaras`, { headers: CONF_HEADERS });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (aplicarSelects) aplicarConfigASelects(data.config_actual);
+          actualizarIndicadores(data.conectada, data.motor_activo);
+        } catch (err) { console.error('Error:', err); }
+      }
+
+      btnEscanear.addEventListener('click', () => {
+        btnEscanear.innerText = 'Escaneando hardware...';
+        btnEscanear.disabled = true;
+
+        fetch(`${CONF_API_BASE}/api/escanear-hardware`, { headers: CONF_HEADERS })
+          .then(res => res.json())
+          .then(data => {
+            if (data.error) { mostrarNotificacion('⚠️ ' + data.error, 'error'); return; }
+            if (data.puertos_disponibles.length === 0) {
+              mostrarNotificacion('No se detectó ninguna cámara.', 'error');
+            } else {
+              mostrarNotificacion('Puertos detectados: ' + data.puertos_disponibles.join(', '), 'success');
+            }
+            Object.values(SELECTS_POR_ROL).forEach(id => {
+              const select = document.getElementById(id);
+              select.innerHTML = '<option value="none">Desactivada</option>';
+              data.puertos_disponibles.forEach(puerto => {
+                const option = document.createElement('option');
+                option.value = puerto; option.text = `Puerto /dev/video${puerto}`; select.appendChild(option);
+              });
+            });
+            aplicarConfigASelects(data.config_actual);
+          })
+          .catch(() => mostrarNotificacion(' Error de conexión', 'error'))
+          .finally(() => { btnEscanear.innerText = 'Escanear Puertos'; btnEscanear.disabled = false; });
+      });
+
+      btnGuardar.addEventListener('click', () => {
+        const parsePort = (val) => val === 'none' ? null : parseInt(val);
+        const payload = {
+          frontal: parsePort(document.getElementById('sel-frontal').value),
+          lat_der: parsePort(document.getElementById('sel-lat-der').value),
+          lat_izq: parsePort(document.getElementById('sel-lat-izq').value)
+        };
+        btnGuardar.disabled = true;
+        
+        fetch(`${CONF_API_BASE}/api/guardar-configuracion`, {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json', 'X-API-Key': CONF_ADMIN_KEY }, 
+          body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => { mostrarNotificacion('' + data.mensaje, 'info'); refrescarEstado(true); })
+        .catch(() => mostrarNotificacion(' Error guardando configuración.', 'error'))
+        .finally(() => btnGuardar.disabled = false );
+      });
+
+      refrescarEstado(true);
+      setInterval(() => refrescarEstado(false), 3000);
+  });
+</script>

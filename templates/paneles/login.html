@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Iniciar Sesión | ScannorQA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f3f4f6; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .tarjeta { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        input { width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; }
+        button { width: 100%; padding: 12px; background-color: #4338ca; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        button:hover { background-color: #3730a3; }
+        .error-msg { color: #dc2626; font-size: 14px; margin-bottom: 15px; font-weight: 600; }
+        .enlace-registro { display: block; margin-top: 20px; color: #4b5563; font-size: 14px; text-decoration: none; }
+        .enlace-registro:hover { color: #4338ca; text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="tarjeta">
+        <h2 style="margin-top:0; color:#111827;">Acceso al Motor Edge</h2>
+        <p style="color:#6b7280; font-size:14px; margin-bottom:20px;">Ingresa tus credenciales</p>
+        
+{% if error %}
+    <div class="error-msg"> {{ error }}</div>
+{% endif %}
+        <form method="POST">
+            {% csrf_token %}
+            <input type="text" name="username" placeholder="Nombre de Usuario" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+            <button type="submit">Iniciar Sesión</button>
+        </form>
+
+    </div>
+</body>
+</html>

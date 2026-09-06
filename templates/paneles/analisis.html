@@ -1,0 +1,39 @@
+<div class="panel layout-analisis" id="panel-analisis">
+  <div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">
+          <svg class="ic" style="width:15px;height:15px;color:#6b7280" viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="11" rx="2"/><polygon points="22,4 16,8 16,14 22,18"/></svg>
+          Vista previa de la cámara
+        </span>
+        <span style="font-size:11px;color:#9ca3af;">1080p · 30fps</span>
+      </div>
+      <div class="card-body">
+        <div class="camera-viewport-wide">
+          <div class="camera-live-indicator" style="z-index:15;"><div class="live-dot"></div> EN VIVO</div>
+          
+          <div class="cam-labels-container hidden" id="cam-labels">
+              <div class="cam-label">CAM 01: FRONTAL / LECTOR QR</div>
+              <div class="cam-label">CAM 02: LATERAL DER</div>
+              <div class="cam-label">CAM 03: LATERAL IZQ</div>
+          </div>
+
+          <img id="video-stream" src="" alt="Stream" class="hidden" />
+          
+          <div id="camera-placeholder" style="display: flex; flex-direction: column; align-items: center; gap:10px; z-index: 2;">
+            <svg class="camera-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="11" rx="2"/><polygon points="22,4 16,8 16,14 22,18"/></svg>
+            <span class="camera-placeholder-text" style="color:#94a3b8;">Esperando inicialización de cámaras…</span>
+          </div>
+        </div>
+        <div class="controls-row">
+          <button class="ctrl ctrl-start" id="btn-start"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" fill="currentColor" stroke="none"/></svg> Iniciar</button>
+          <button class="ctrl ctrl-pause" id="btn-pause"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/></svg> Pausar</button>
+          <button class="ctrl ctrl-stop" id="btn-stop"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" stroke="none"/></svg> Detener</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="analysis-col">
+    <!-- Espacio para futuros detalles de análisis en vivo -->
+  </div>
+</div>

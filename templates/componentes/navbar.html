@@ -1,0 +1,53 @@
+<header class="topbar">
+  <div class="brand">
+    Scannor QA
+    <span class="brand-badge">BETA</span>
+  </div>
+  <div class="topbar-right" style="display: flex; align-items: center; gap: 15px;">
+    
+  
+    <div style="text-align: right; line-height: 1.3;">
+        <div style="font-size: 13px; font-weight: 700; color: #111827;">
+             {{ user.username }}
+        </div>
+        <div style="font-size: 11px; font-weight: 600; color: #6b7280;">
+            {{ user.get_rol_display }} | {% if user.empresa %}{{ user.empresa.nombre }}{% else %}Staff Central{% endif %}
+        </div>
+    </div>
+    <form action="{% url 'logout' %}" method="POST" style="margin: 0; display: inline;">
+    {% csrf_token %}
+    <button type="submit" class="btn-ghost" style="background: none; border: none; text-decoration: none; color: #dc2626; font-weight: 600; padding: 6px 12px; cursor: pointer; font-family: inherit; font-size: inherit;">
+        Salir
+    </button>
+</form>
+  </div>
+</header>
+
+<nav class="navbar">
+  <div class="nav-tab">
+    <svg class="ic" style="width:14px;height:14px;color:#6b7280" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Nuevo objeto
+  </div>
+  
+  <div class="nav-tab active" id="tab-analisis" onclick="cambiarPanel('analisis')">
+    <svg class="ic" style="width:14px;height:14px;color:#6b7280" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Análisis
+  </div>
+  
+  <div class="nav-tab" id="tab-personalizacion" onclick="cambiarPanel('personalizacion')">
+    <svg class="ic" style="width:14px;height:14px;color:#6b7280" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 0-14.14 0M21.9 12a9.9 9.9 0 0 0-2.93-7.07M2.1 12a9.9 9.9 0 0 1 2.93-7.07M4.93 19.07a10 10 0 0 0 14.14 0"/></svg>
+    Personalización
+  </div>
+  
+  <div class="nav-tab" id="tab-resultados" onclick="cambiarPanel('resultados')">
+    <svg class="ic" style="width:14px;height:14px;color:#6b7280" viewBox="0 0 24 24"><rect x="2" y="3" width="4" height="18" rx="1"/><rect x="9" y="9" width="4" height="12" rx="1"/><rect x="16" y="5" width="4" height="16" rx="1"/></svg>
+    Resultados
+    <span class="nav-badge" id="badge-resultados">0</span>
+  </div>
+{% if user.rol == 'admin_empresa' %}
+  <a href="{% url 'gestion_planta' %}" class="nav-tab" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;">
+    <svg class="ic" style="width:14px;height:14px;color:#10b981" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Gestión de Planta
+  </a>
+  {% endif %}
+</nav>

@@ -1,0 +1,404 @@
+<div class="panel layout-resultados hidden" id="panel-resultados">
+  
+  <!-- CABECERA Y BOTONES -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+    <div>
+      <h2 style="font-size: 24px; font-weight: 700; color: #111827;">Resultados de Inspección</h2>
+      <p style="font-size: 14px; color: #6b7280; margin-top: 4px;">Auditoría histórica, métricas y validación humana.</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn-ghost" id="btn-export-csv" style="color: #047857; border-color: #6ee7b7; font-weight: bold; background: #ecfdf5;">Exportar CSV</button>
+      <button class="btn-primary" id="btn-export-pdf" style="font-weight: bold;">Exportar PDF</button>
+      <button id="btn-limpiar" style="background: none; border: none; color: #ef4444; font-size: 12px; text-decoration: underline; cursor: pointer; margin-left: 10px;">Archivar / Purgar Sesión</button>
+    </div>
+  </div>
+
+  <!-- TARJETAS KPI -->
+  <div class="metrics-grid" style="margin-bottom: 10px; grid-template-columns: repeat(4, 1fr);">
+    <div class="metric-card">
+      <div class="metric-label">Total Inspecciones</div>
+      <div class="metric-value" id="kpi-total">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label" style="color:#16a34a;">Aprobados (OK)</div>
+      <div class="metric-value" id="kpi-ok" style="color:#16a34a;">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label" style="color:#dc2626;">Rechazados (NG)</div>
+      <div class="metric-value" id="kpi-ng" style="color:#dc2626;">0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label" style="color:#2563eb;">Tasa de Aprobación</div>
+      <div class="metric-value" id="kpi-tasa" style="color:#2563eb;">0%</div>
+    </div>
+  </div>
+
+  <!-- TABLAS Y PESTAÑAS (TABS) -->
+  <div class="card" id="area-impresion" style="margin-top: 15px;">
+    
+    <!-- Botones de Pestañas -->
+    <div style="display: flex; gap: 10px; border-bottom: 2px solid #e5e7eb; margin-bottom: 15px; padding-bottom: 5px;">
+        <button onclick="cambiarTab('general')" id="tab-btn-general" style="background: none; border: none; font-weight: bold; color: #2563eb; font-size: 14px; cursor: pointer; padding: 5px 10px; border-bottom: 3px solid #2563eb;">
+            📋 Historial General
+        </button>
+        <button onclick="cambiarTab('dataset')" id="tab-btn-dataset" style="background: none; border: none; font-weight: bold; color: #6b7280; font-size: 14px; cursor: pointer; padding: 5px 10px;">
+            🧠 Dataset (Falsos Positivos)
+        </button>
+    </div>
+    
+    <!-- TABLA 1: HISTORIAL GENERAL -->
+    <div id="tab-general">
+        <div class="toolbar" style="display: flex; gap: 10px; background: #f8f9fb; padding: 10px; border-radius: 8px; border: 1px solid #e4e7ec; margin-bottom: 10px;">
+            <input type="text" id="buscador-tabla" class="input-search" placeholder="🔍 Buscar por Lote..." style="padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; width: 250px;">
+            <button onclick="cargarResultados()" class="btn-primary" style="padding: 8px 15px; font-size: 12px;">🔄 Actualizar</button>
+        </div>
+        
+        <table class="table-container" id="tabla-reporte">
+          <thead>
+            <tr>
+              <th>ID / Lote</th>
+              <th>Timestamp</th>
+              <th>Confianza AI</th>
+              <th>Estado Visual</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-historial"></tbody>
+        </table>
+        <div id="mensaje-vacio" class="empty-state">Aún no hay registros de inspección en esta sesión.</div>
+    </div>
+
+    <!-- TABLA 2: DATASET PARA RE-ENTRENAMIENTO -->
+    <div id="tab-dataset" class="hidden" style="display: none;">
+        <div style="background: #ecfdf5; border: 1px solid #6ee7b7; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 12px; color: #047857;">
+            <strong>ℹ️ Banco de Imágenes:</strong> Estas son piezas que la IA marcó como defectuosas, pero un humano confirmó que estaban limpias. Úsalas para re-entrenar el modelo.
+        </div>
+        <table class="table-container" id="tabla-dataset-reporte">
+          <thead>
+            <tr>
+              <th>ID / Lote</th>
+              <th>Timestamp</th>
+              <th>Falla Equivocada</th>
+              <th>Evidencia</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-historial-dataset"></tbody>
+        </table>
+        <div id="mensaje-vacio-dataset" class="empty-state">Aún no hay Falsos Positivos registrados.</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE AUDITORÍA HUMANA -->
+<div id="image-modal" class="modal-overlay">
+  <div class="modal-content" onclick="event.stopPropagation()" style="text-align: center; max-width: 550px; padding: 25px;">
+    <button class="modal-close" onclick="cerrarModal()">X</button>
+    
+    <h3 style="margin-bottom: 5px; color:#111827;">Auditoría de Pieza: <span id="audit-lote-id" style="color: #2563eb; font-family: monospace;"></span></h3>
+    <p id="audit-subtitle" style="font-size: 12px; color: #6b7280; margin-bottom: 15px;">Evaluación del desempeño del modelo de Visión Artificial.</p>
+    
+    <!-- PROTECCIÓN DE IMAGEN: onerror detecta si el Edge (cámara) está desconectado -->
+    <div style="background: #f3f4f6; border-radius: 6px; padding: 5px; margin: 0 auto; display: inline-block;">
+        <img id="modal-img-src" src="" class="modal-image" alt="Evidencia Detallada" 
+             style="max-height: 45vh; border: 1px solid #e4e7ec; border-radius: 6px;"
+             onerror="this.onerror=null; this.src='https://via.placeholder.com/640x480.png?text=Error:+Camara+(Edge)+Desconectada';">
+    </div>
+    
+    <div id="audit-controls" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+      
+      <!-- BOTONES ANTICONFUSIÓN -->
+      <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+        <button class="btn-primary" id="btn-validar-ia" style="background: #16a34a; font-size: 13px;" {% if not user.is_authenticated %}disabled{% endif %}>
+            ✅ La IA tiene razón (Confirmar Defecto)
+        </button>
+        <button class="btn-ghost" id="btn-pre-forzar" style="color: #dc2626; border-color: #fca5a5; font-size: 13px; background: #fef2f2;" {% if not user.is_authenticated %}disabled{% endif %}>
+            ❌ La IA se equivocó (Pieza Limpia / Forzar OK)
+        </button>
+      </div>
+      
+      <!-- Caja de Justificación Oculta -->
+      <div id="caja-justificacion" class="hidden" style="text-align: left; margin-top: 15px; background: #fff1f2; padding: 15px; border-radius: 8px; border: 1px solid #fecdd3;">
+          <label style="font-size: 13px; font-weight: 700; color: #9f1239;">¿Por qué se equivocó la IA? (Justificación obligatoria):</label>
+          <textarea id="texto-justificacion" rows="2" style="width: 100%; margin-top: 8px; padding: 10px; border: 1px solid #fda4af; border-radius: 4px;" placeholder="Ej. Era solo un reflejo de luz exterior, no un defecto real..."></textarea>
+          
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+              <button class="btn-ghost" onclick="document.getElementById('caja-justificacion').classList.add('hidden')" style="padding: 6px 12px; font-size: 12px; color: #4b5563; border-color: #d1d5db;">Cancelar</button>
+              <button class="btn-primary" id="btn-confirmar-forzar" style="background: #e11d48; padding: 6px 12px; font-size: 12px; border: none;">Firmar Auditoría y Forzar OK</button>
+          </div>
+      </div>
+    </div>
+    
+    <!-- Django solo muestra este aviso si el usuario es un visitante anónimo -->
+    {% if not user.is_authenticated %}
+    <div id="audit-warning" style="margin-top: 15px; font-size: 12px; color: #dc2626; font-weight: 600;">
+         Debes iniciar sesión en la barra superior para auditar piezas.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% csrf_token %}
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    window.piezaActualUID = null;
+    
+    // Cargar datos al abrir la página
+    cargarResultados();
+
+    // Listeners de Auditoría
+    document.getElementById('btn-pre-forzar').addEventListener('click', function() {
+        document.getElementById('caja-justificacion').classList.remove('hidden');
+    });
+
+    document.getElementById('btn-confirmar-forzar').addEventListener('click', function() {
+        const texto = document.getElementById('texto-justificacion').value;
+        if (texto.trim() === '') {
+            alert("Por favor, explica por qué la IA se equivocó.");
+            return;
+        }
+        enviarAuditoria(false, texto);
+    });
+
+    document.getElementById('btn-validar-ia').addEventListener('click', function() {
+        enviarAuditoria(true, "Confirmado por el operador: La IA detectó el defecto correctamente.");
+    });
+
+    document.getElementById('btn-export-csv').addEventListener('click', exportarCSV);
+    document.getElementById('btn-export-pdf').addEventListener('click', exportarPDF);
+});
+
+// ==========================================
+// FUNCIÓN CENTRAL: OBTENER DATOS DE DJANGO
+// ==========================================
+function cargarResultados() {
+    fetch('/api/resultados/')
+    .then(response => response.json())
+    .then(data => {
+        // 1. Unificar datos (por si Django los manda juntos o separados)
+        let todosLosRegistros = [];
+        if (data.resultados) todosLosRegistros = todosLosRegistros.concat(data.resultados);
+        if (data.dataset) todosLosRegistros = todosLosRegistros.concat(data.dataset);
+
+        const tbodyGen = document.getElementById('tabla-historial');
+        const tbodyData = document.getElementById('tabla-historial-dataset');
+        tbodyGen.innerHTML = '';
+        tbodyData.innerHTML = '';
+
+        // Contadores KPI
+        let total = todosLosRegistros.length;
+        let ok = 0;
+        let ng = 0;
+        let contadorDataset = 0;
+        let contadorGeneral = 0;
+
+        todosLosRegistros.forEach(item => {
+            // Evaluaciones estrictas basadas en el texto de tu base de datos
+            let esFalsoPositivo = item.estado.includes('Aprobado (Manual)');
+            let esAprobado = item.estado.includes('Aprobado');
+
+            if (esAprobado) ok++; else ng++;
+
+            if (esFalsoPositivo) {
+                contadorDataset++;
+                tbodyData.innerHTML += `
+                    <tr>
+                        <td style="font-size:12px;"><b>${item.lote}</b><br><span style="color:#6b7280; font-size:10px;">${item.uid.split('_').pop()}</span></td>
+                        <td style="font-size:12px;">${item.timestamp}</td>
+                        <td style="color:#dc2626; font-weight:bold; font-size:12px;">Falla Errónea: ${item.falla}</td>
+                        <td><button class="btn-primary" onclick="abrirModalSoloVer('${item.lote}', '${item.imagen}')" style="font-size:11px; padding:4px 8px; background:#047857;">Ver Evidencia</button></td>
+                    </tr>
+                `;
+            } else {
+                contadorGeneral++;
+                let colorEstado = esAprobado ? '#16a34a' : '#dc2626';
+                tbodyGen.innerHTML += `
+                    <tr>
+                        <td style="font-size:12px;"><b>${item.lote}</b><br><span style="color:#6b7280; font-size:10px;">${item.uid.split('_').pop()}</span></td>
+                        <td style="font-size:12px;">${item.timestamp}</td>
+                        <td style="font-size:13px; font-weight:bold;">${item.confianza}</td>
+                        <td><span style="color: ${colorEstado}; font-weight:bold; font-size:12px;">${item.estado}</span></td>
+                        <td><button class="btn-ghost" onclick="abrirModalAuditoria('${item.uid}', '${item.lote}', '${item.imagen}')" style="font-size:11px; padding:4px 8px;">Ver / Auditar</button></td>
+                    </tr>
+                `;
+            }
+        });
+
+        // 2. Mostrar/Ocultar mensajes de tabla vacía
+        document.getElementById('mensaje-vacio').style.display = contadorGeneral > 0 ? 'none' : 'block';
+        document.getElementById('mensaje-vacio-dataset').style.display = contadorDataset > 0 ? 'none' : 'block';
+
+        // 3. Imprimir matemática en las tarjetas KPI
+        document.getElementById('kpi-total').innerText = total;
+        document.getElementById('kpi-ok').innerText = ok;
+        document.getElementById('kpi-ng').innerText = ng;
+        document.getElementById('kpi-tasa').innerText = total > 0 ? Math.round((ok/total)*100) + '%' : '0%';
+    })
+    .catch(error => console.error("Error cargando el historial:", error));
+}
+
+// ==========================================
+// CONTROL DE PESTAÑAS (TABS) CORREGIDO
+// ==========================================
+function cambiarTab(tab) {
+    const tabGeneral = document.getElementById('tab-general');
+    const tabDataset = document.getElementById('tab-dataset');
+    const btnGeneral = document.getElementById('tab-btn-general');
+    const btnDataset = document.getElementById('tab-btn-dataset');
+
+    if (tab === 'general') {
+        // Mostrar General
+        tabGeneral.style.display = 'block';
+        tabGeneral.classList.remove('hidden'); // <-- CLAVE: Quitar el candado CSS
+        
+        // Ocultar Dataset
+        tabDataset.style.display = 'none';
+        tabDataset.classList.add('hidden');
+
+        // Estilos de botones
+        btnGeneral.style.color = '#2563eb';
+        btnGeneral.style.borderBottom = '3px solid #2563eb';
+        btnDataset.style.color = '#6b7280';
+        btnDataset.style.borderBottom = 'none';
+    } else {
+        // Mostrar Dataset
+        tabDataset.style.display = 'block';
+        tabDataset.classList.remove('hidden'); // <-- CLAVE: Quitar el candado CSS
+        
+        // Ocultar General
+        tabGeneral.style.display = 'none';
+        tabGeneral.classList.add('hidden');
+
+        // Estilos de botones
+        btnDataset.style.color = '#2563eb';
+        btnDataset.style.borderBottom = '3px solid #2563eb';
+        btnGeneral.style.color = '#6b7280';
+        btnGeneral.style.borderBottom = 'none';
+    }
+}
+
+// ==========================================
+// FUNCIONES DE AUDITORÍA Y MODAL
+// ==========================================
+function enviarAuditoria(modelo_acerto, justificacion) {
+    if (!window.piezaActualUID) return;
+
+    const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+    const csrfToken = csrfInput ? csrfInput.value : '';
+
+    fetch(`/api/auditar/falso-positivo/${window.piezaActualUID}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            justificacion: justificacion,
+            modelo_acerto: modelo_acerto
+        })
+    })
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || "Fallo en la comunicación con el servidor central.");
+        return data;
+    })
+    .then(data => {
+        alert("¡Auditoría registrada exitosamente!");
+        cerrarModal();
+        cargarResultados(); // Recargamos las tablas sin refrescar toda la página
+    })
+    .catch(error => {
+        console.error('Detalle del error:', error);
+        alert("ATENCIÓN: " + error.message);
+    });
+}
+
+function abrirModalAuditoria(uid, lote_qr, imagen_url) {
+    window.piezaActualUID = uid;
+    document.getElementById('audit-lote-id').innerText = lote_qr;
+    document.getElementById('modal-img-src').src = imagen_url;
+    document.getElementById('audit-subtitle').innerText = "Evaluación del desempeño del modelo de Visión Artificial.";
+    
+    // Mostrar controles de auditoría
+    document.getElementById('audit-controls').style.display = 'flex';
+    document.getElementById('caja-justificacion').classList.add('hidden');
+    document.getElementById('texto-justificacion').value = '';
+    
+    document.getElementById('image-modal').style.display = 'flex';
+}
+
+function abrirModalSoloVer(lote_qr, imagen_url) {
+    document.getElementById('audit-lote-id').innerText = lote_qr;
+    document.getElementById('modal-img-src').src = imagen_url;
+    document.getElementById('audit-subtitle').innerText = "Pieza previamente auditada. Imagen preservada para Dataset.";
+    
+    // Ocultar controles de auditoría (Ya está validada)
+    document.getElementById('audit-controls').style.display = 'none';
+    document.getElementById('image-modal').style.display = 'flex';
+}
+
+function cerrarModal() {
+    document.getElementById('image-modal').style.display = 'none';
+    window.piezaActualUID = null;
+}
+
+
+// ==========================================
+// FUNCIÓN 1: EXPORTAR A CSV (Excel)
+// ==========================================
+function exportarCSV() {
+    let tabla = document.getElementById('tabla-reporte'); 
+    if (!tabla || tabla.rows.length <= 1) return alert("No hay datos en la tabla para exportar.");
+
+    let csv = [];
+    let filas = tabla.querySelectorAll('tr');
+
+    for (let i = 0; i < filas.length; i++) {
+        let fila = [], cols = filas[i].querySelectorAll('td, th');
+        
+        // Iteramos las columnas hasta el length - 1 para IGNORAR la columna "Acción"
+        for (let j = 0; j < cols.length - 1; j++) { 
+            let texto = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").replace(/"/g, '""');
+            fila.push('"' + texto + '"');
+        }
+        csv.push(fila.join(','));
+    }
+
+    let csvString = csv.join('\n');
+    let blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    let link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Reporte_Inspecciones_ScannorQA.csv";
+    link.click();
+}
+
+// ==========================================
+// FUNCIÓN 2: EXPORTAR A PDF
+// ==========================================
+function exportarPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    doc.setFontSize(16);
+    doc.text("Reporte de Inspección de Calidad - ScannorQA", 14, 15);
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Generado el: " + new Date().toLocaleString(), 14, 22);
+
+    doc.autoTable({
+        html: '#tabla-reporte',
+        startY: 28,
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42] }, // Color oscuro institucional
+        // Incluimos solo las primeras 4 columnas (0 al 3), omitimos la de Acción (4)
+        columns: [
+            { dataKey: 0 }, { dataKey: 1 }, { dataKey: 2 }, { dataKey: 3 }
+        ]
+    });
+
+    doc.save("Reporte_Calidad_ScannorQA.pdf");
+}
+</script>

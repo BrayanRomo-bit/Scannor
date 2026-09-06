@@ -1,0 +1,227 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Scannor QA - Hub Industrial</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+</head>
+<body>
+
+  {% include 'componentes/navbar.html' %}
+  {% include 'paneles/analisis.html' %}
+  {% include 'paneles/resultados.html' %}
+  
+  <div class="panel hidden" id="panel-personalizacion">
+      {% include 'paneles/personalizacion.html' %}
+  </div>
+
+  <div id="toast-container"></div>
+
+<script>
+    const API_BASE_URL = 'http://127.0.0.1:8001';
+    const WS_BASE_URL = 'ws://127.0.0.1:8001';
+    
+    // --- CREDENCIALES FRONTEND ---
+    const ADMIN_KEY = 'admin-secret-2026';
+    const STREAM_TOKEN = 'visor-token-123';
+    const HEADERS_AUTH = { 'X-API-Key': ADMIN_KEY };
+
+    function mostrarNotificacion(mensaje, tipo = 'success') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${tipo}`;
+        toast.innerHTML = mensaje; 
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 4000); 
+    }
+
+    function cambiarPanel(panelDestino) {
+        const paneles = ['analisis', 'resultados', 'personalizacion'];
+        paneles.forEach(panel => {
+            const vista = document.getElementById(`panel-${panel}`);
+            const pestaña = document.getElementById(`tab-${panel}`);
+            if (panel === panelDestino) {
+                if (vista) vista.classList.remove('hidden');
+                if (pestaña) pestaña.classList.add('active');
+            } else {
+                if (vista) vista.classList.add('hidden');
+                if (pestaña) pestaña.classList.remove('active');
+            }
+        });
+    }
+
+    // --- CERRAR MODAL CON TECLA ESCAPE ---
+    document.addEventListener('keydown', function(e) {
+        const modalOverlay = document.getElementById('image-modal');
+        if (e.key === 'Escape' && modalOverlay && modalOverlay.style.display === 'flex') {
+            cerrarModal(); // Llama a la función de resultados.html
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const videoStream = document.getElementById('video-stream');
+        const placeholder = document.getElementById('camera-placeholder');
+        const camLabels = document.getElementById('cam-labels');
+
+        if(btnStart) {
+            btnStart.addEventListener('click', () => {
+                fetch(`${API_BASE_URL}/api/start`, { method: 'POST', headers: HEADERS_AUTH })
+                    .then(() => {
+                        if(placeholder) placeholder.style.display = 'none';
+                        if(videoStream) videoStream.classList.remove('hidden');
+                        const tiempoActual = new Date().getTime(); 
+                        if(videoStream) videoStream.src = `${API_BASE_URL}/video_feed?token=${STREAM_TOKEN}&t=${tiempoActual}`; 
+                        
+                        setTimeout(() => {
+                            fetch(`${API_BASE_URL}/api/estado-camaras`, { headers: HEADERS_AUTH })
+                                .then(res => res.json())
+                                .then(data => {
+                                    const conectadas = data.conectada;
+                                    if(!camLabels) return;
+                                    const labels = camLabels.querySelectorAll('.cam-label');
+                                    if(labels.length === 3) {
+                                        labels[0].style.display = conectadas.frontal ? 'block' : 'none';
+                                        labels[1].style.display = conectadas.lat_der ? 'block' : 'none';
+                                        labels[2].style.display = conectadas.lat_izq ? 'block' : 'none';
+                                        if(conectadas.frontal || conectadas.lat_der || conectadas.lat_izq) camLabels.classList.remove('hidden');
+                                    }
+                                }).catch(err => console.error(err));
+                        }, 1000); 
+                    }).catch(err => console.error(err));
+            });
+        }
+
+        if(btnStop) {
+            btnStop.addEventListener('click', () => {
+                fetch(`${API_BASE_URL}/api/stop`, { method: 'POST', headers: HEADERS_AUTH })
+                    .then(() => {
+                        if(videoStream) { videoStream.src = ""; videoStream.classList.add('hidden'); }
+                        if(camLabels) camLabels.classList.add('hidden'); 
+                        if(placeholder) placeholder.style.display = 'flex';
+                    }).catch(err => console.error(err));
+            });
+        }
+
+        const tablaHistorial = document.getElementById("tabla-historial");
+        const mensajeVacio = document.getElementById("mensaje-vacio");
+
+        // --- 1. LÓGICA DEL BOTÓN ARCHIVAR / PURGAR ---
+        const btnLimpiar = document.getElementById('btn-limpiar');
+        if (btnLimpiar) {
+            btnLimpiar.addEventListener('click', () => {
+                const confirmar = confirm("⚠️ ATENCIÓN: Estás a punto de archivar el historial de esta sesión. ¿Deseas continuar?");
+                if (confirmar) {
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+                    
+                    // A. Archivar en Base de Datos Central (Django)
+                    fetch(`/api/archivar-sesion/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+                    .then(() => {
+                        // B. Limpiar memoria RAM en la Cámara (Edge)
+                        fetch(`${API_BASE_URL}/api/clear`, { method: 'DELETE', headers: HEADERS_AUTH });
+                        
+                        // C. Limpiar Interfaz y KPIs
+                        if (tablaHistorial) tablaHistorial.innerHTML = "";
+                        if (mensajeVacio) mensajeVacio.style.display = 'flex';
+                        mostrarNotificacion("🗑️ Historial archivado", "info");
+                        
+                        document.getElementById('kpi-total').innerText = "0";
+                        document.getElementById('kpi-ok').innerText = "0";
+                        document.getElementById('kpi-ng').innerText = "0";
+                        document.getElementById('kpi-tasa').innerText = "0%";
+                    }).catch(err => console.error(err));
+                }
+            });
+        }
+
+        // --- 2. WEBSOCKET Y CÁLCULO MATEMÁTICO DE KPIs ---
+        let socket;
+        function conectarWebSocket() {
+            socket = new WebSocket(`${WS_BASE_URL}/ws/failures?token=${STREAM_TOKEN}`);
+            
+            socket.onmessage = function(event) {
+                try {
+                    const datos = JSON.parse(event.data);
+                    const fallasArray = datos.failures;
+                    const totalInspecciones = fallasArray.length;
+
+                    if (totalInspecciones === 0 && mensajeVacio) {
+                        mensajeVacio.style.display = 'flex';
+                        if (tablaHistorial) tablaHistorial.innerHTML = "";
+                    } else if (mensajeVacio && totalInspecciones > 0) {
+                        mensajeVacio.style.display = 'none';
+                    }
+
+                    if (tablaHistorial && totalInspecciones > 0) {
+                        tablaHistorial.innerHTML = "";
+                        let countOK = 0, countNG = 0;
+
+                        fallasArray.forEach(falla => {
+                            let badgeHTML = '', estadoLogico = ''; 
+                            
+                            if (falla.estado === 'Aprobado' || falla.estado === 'Aprobado (Manual)') {
+                                countOK++; estadoLogico = 'aprobado';
+                                badgeHTML = falla.estado === 'Aprobado' ? `<span class="badge-success">Aprobado OK</span>` : `<span class="badge-success" style="background:#16a34a; color:white; border:none;">🧑‍🔧 Aprobado (Manual)</span>`;
+                            } else if (falla.estado === 'Rechazado (Auditado)') {
+                                countNG++; estadoLogico = 'rechazado';
+                                badgeHTML = `<span class="badge-error" style="background:#991b1b; color:white; border:none;">✅ Rechazado (Auditado)</span><span style="display:block; font-size:10px; color:#991b1b; margin-top:2px; font-weight: bold; text-transform: uppercase;">${falla.falla}</span>`;
+                            } else if (falla.estado === 'Incompleto' || falla.estado === 'Requiere_Revision') {
+                                countNG++; estadoLogico = 'revision';
+                                badgeHTML = `<span class="badge-warning">Revisión/Incompleto</span><span style="display:block; font-size:10px; color:#854d0e; margin-top:2px; font-weight: bold;">${falla.falla}</span>`;
+                            } else {
+                                countNG++; estadoLogico = 'rechazado';
+                                badgeHTML = `<span class="badge-error">${falla.estado}</span><span style="display:block; font-size:10px; color:#dc2626; margin-top:2px; font-weight: bold; text-transform: uppercase;">${falla.falla}</span>`;
+                            }
+
+                            const uid = falla.id || falla.uid;
+                            const filaHTML = `
+                                <tr id="fila-${uid}" data-estado="${estadoLogico}">
+                                    <td>
+                                        <span style="font-family: monospace; font-weight:600;">${uid}</span><br>
+                                        <span style="color: #2563eb; font-size: 11px; font-weight: bold;">LOTE: ${falla.lote}</span>
+                                    </td>
+                                    <td style="color: #6b7280; font-size: 12px;">${falla.timestamp}</td>
+                                    <td style="font-weight: 600; color: #4338ca;">${(parseFloat(falla.confianza) * 100).toFixed(1)}%</td>                                    
+                                    <td id="estado-${uid}">${badgeHTML}</td>
+                                    <td>
+                                        <button class="btn-ghost" style="padding: 4px 8px;" onclick="abrirModalAuditoria('${uid}', '${falla.lote}', '${falla.imagen}')">Auditar</button>
+                                    </td>
+                                </tr>`;
+                            tablaHistorial.insertAdjacentHTML('afterbegin', filaHTML);
+                        });
+
+                        // MATEMÁTICAS EN TIEMPO REAL
+                        const tasaAprobacion = totalInspecciones > 0 ? ((countOK / totalInspecciones) * 100).toFixed(1) : 0;
+
+                        const elTotal = document.getElementById('kpi-total');
+                        const elOk = document.getElementById('kpi-ok');
+                        const elNg = document.getElementById('kpi-ng');
+                        const elTasa = document.getElementById('kpi-tasa');
+                        const elBadge = document.getElementById("badge-resultados"); 
+
+                        if(elTotal) elTotal.innerText = totalInspecciones;
+                        if(elOk) elOk.innerText = countOK;
+                        if(elNg) elNg.innerText = countNG;
+                        if(elTasa) elTasa.innerText = `${tasaAprobacion}%`;
+                        if(elBadge) elBadge.innerText = totalInspecciones; 
+                    }
+                } catch (error) { console.error("Error WS:", error); }
+            };
+            socket.onclose = () => setTimeout(conectarWebSocket, 3000);
+        }
+        conectarWebSocket();
+    });
+</script>
+</body>
+</html>

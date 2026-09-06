@@ -1,0 +1,93 @@
+{% extends 'staff/base_staff.html' %}
+
+{% block content %}
+<style>
+    /* Estilos limpios para las alertas de Django */
+    .alert-error { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
+    .alert-success { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+</style>
+
+<div class="staff-card">
+    <h3>Registrar Nueva Fábrica y Administrador</h3>
+    <p style="font-size: 12px; color: #6b7280; margin-bottom: 20px;">Crea el cliente y su cuenta maestra de acceso en un solo paso.</p>
+
+    {% if messages %}
+        {% for message in messages %}
+            <!-- Usamos clases CSS limpias en lugar de código en línea -->
+            <div class="{% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- FORMULARIO DE ONBOARDING -->
+    <form method="POST" style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 30px;">
+        {% csrf_token %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div>
+                <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#374151;">Nombre de la Empresa / Planta</label>
+                <input type="text" name="nombre" class="form-control" placeholder="Ej. AceroTech Monclova" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 5px;">
+            </div>
+            <div>
+                <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#374151;">Límite de Operadores (Licencias)</label>
+                <input type="number" name="limite_usuarios" class="form-control" value="5" min="1" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 5px;">
+            </div>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 15px; margin-top: 15px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #111827;">Credenciales del Administrador Maestro</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#374151;">Usuario Admin</label>
+                    <input type="text" name="admin_username" class="form-control" placeholder="Ej. admin_acerotech" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 5px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#374151;">Correo Electrónico</label>
+                    <input type="email" name="admin_email" class="form-control" placeholder="contacto@acerotech.com" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 5px;">
+                </div>
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#374151;">Contraseña Inicial</label>
+                    <input type="password" name="admin_password" class="form-control" placeholder="••••••••" required style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 5px;">
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-primary" style="background-color: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">🚀 Registrar Empresa y Crear Admin</button>
+    </form>
+
+    <!-- TABLA DE FÁBRICAS ACTIVAS -->
+    <h3>Fábricas Activas en la Plataforma</h3>
+    <table class="staff-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre de la Empresa</th>
+                <th>Límite Licencias</th>
+                <th>Fecha de Registro</th>
+                <th>Estado del Plan</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for empresa in empresas %}
+            <tr>
+                <td>#{{ empresa.id }}</td>
+                <td style="font-weight: 600; color: #111827;">{{ empresa.nombre }}</td>
+                <td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">{{ empresa.limite_usuarios }} asientos</span></td>
+                <td style="color: #6b7280;">{{ empresa.fecha_creacion|date:"d M Y" }}</td>
+                <td>
+                    {% if empresa.activa %}
+                        <span style="color: #16a34a; font-weight: bold;">🟢 Suscripción Activa</span>
+                    {% else %}
+                        <span style="color: #dc2626; font-weight: bold;">🔴 Suspendido</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; color: #6b7280; padding: 30px;">No hay fábricas registradas.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

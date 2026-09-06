@@ -1,0 +1,88 @@
+{% extends 'staff/base_staff.html' %}
+
+{% block content %}
+<div class="staff-card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+        <div>
+            <h3>Gestión de Usuarios y Operadores</h3>
+            <p style="font-size: 12px; color: #6b7280;">Administra el acceso de los empleados de cada fábrica al sistema ScannorQA.</p>
+        </div>
+        
+        <!-- BARRA DE BÚSQUEDA -->
+        <div>
+            <input type="text" id="buscador-usuarios" class="form-control" placeholder="🔍 Buscar por nombre, correo o empresa..." style="width: 300px; padding: 8px 12px;">
+        </div>
+    </div>
+    
+    <table class="staff-table" id="tabla-usuarios">
+        <thead>
+            <tr>
+                <th>Usuario / Correo</th>
+                <th>Fábrica Asignada</th>
+                <th>Rol</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for usuario in usuarios %}
+            <!-- Le ponemos una clase a la fila para que el JS la encuentre -->
+            <tr class="fila-usuario">
+                <td>
+                    <strong style="color: #111827;">@{{ usuario.username }}</strong><br>
+                    <span style="font-size: 11px; color: #6b7280;">{{ usuario.email }}</span>
+                </td>
+                <td>{{ usuario.empresa.nombre }}</td>
+                <td><span style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold;">{{ usuario.get_rol_display }}</span></td>
+                <td>
+                    {% if usuario.is_active %}
+                        <span style="color: #16a34a; font-weight: bold;">🟢 Con Acceso</span>
+                    {% else %}
+                        <span style="color: #dc2626; font-weight: bold;">🔴 Cuenta Suspendida</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="POST" action="{% url 'toggle_usuario' usuario.id %}" style="margin:0;">
+                        {% csrf_token %}
+                        {% if usuario.is_active %}
+                            <button type="submit" class="btn-primary" style="background:#dc2626; padding: 4px 10px; font-size: 11px;">Suspender</button>
+                        {% else %}
+                            <button type="submit" class="btn-primary" style="background:#16a34a; padding: 4px 10px; font-size: 11px;">Reactivar</button>
+                        {% endif %}
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 30px; color: #6b7280;">No hay usuarios registrados o aprobados en la plataforma.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- SCRIPT DEL BUSCADOR -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador-usuarios');
+    if (buscador) {
+        buscador.addEventListener('keyup', function() {
+            const textoBuscado = this.value.toLowerCase();
+            const filas = document.querySelectorAll('.fila-usuario');
+            
+            filas.forEach(fila => {
+                // Obtenemos todo el texto de la fila (usuario, correo, empresa, etc.)
+                const textoFila = fila.innerText.toLowerCase();
+                
+                // Si el texto de la fila incluye lo que escribimos, la mostramos, sino la ocultamos
+                if (textoFila.includes(textoBuscado)) {
+                    fila.style.display = '';
+                } else {
+                    fila.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}
