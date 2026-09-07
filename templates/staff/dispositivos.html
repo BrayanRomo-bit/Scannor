@@ -71,12 +71,15 @@
             <tr>
                 <td style="font-size: 13px;">
                     <strong>{{ dispositivo.nombre }}</strong><br>
-                    <span style="font-size: 11px; color: #6b7280; font-family: monospace;">ID: {{ dispositivo.device_id }} | MAC: {{ dispositivo.mac_address|default:"N/A" }}</span>
+                    <span style="font-size: 11px; color: #6b7280; font-family: monospace;">
+                        ID: {{ dispositivo.device_id }} | MAC: {{ dispositivo.mac_address|default:"N/A" }}<br>
+                        IP: <span style="color: #059669;">{{ dispositivo.ip_local|default:"No configurada" }}</span>
+                    </span>
                 </td>
                 <td>{{ dispositivo.empresa.nombre }}</td>
                 <td>
                     {% if dispositivo.modelo_asignado %}
-                        <span style="background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">🧠 {{ dispositivo.modelo_asignado.version }}</span>
+                        <span style="background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;"> {{ dispositivo.modelo_asignado.version }}</span>
                     {% else %}
                         <span style="background: #f3f4f6; color: #6b7280; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Ninguno</span>
                     {% endif %}
@@ -86,6 +89,8 @@
                 </td>
                 <td>
                     <div style="display: flex; gap: 10px; align-items: center;">
+                        <a href="{% url 'extraer_dataset' dispositivo.id %}" class="btn-primary" style="background: #10b981; text-decoration: none; padding: 5px 10px; font-size: 11px;">📦 Dataset</a>
+                        <a href="{% url 'push_update_ota' dispositivo.id %}" class="btn-primary" style="background: #8b5cf6; text-decoration: none; padding: 5px 10px; font-size: 11px;">🔄 Push OTA</a>
                         <a href="{% url 'editar_dispositivo' dispositivo.id %}" class="btn-primary" style="background: #3b82f6; text-decoration: none; padding: 5px 10px; font-size: 11px;">✏️ Editar</a>
                         <a href="{% url 'eliminar_dispositivo' dispositivo.id %}" onclick="return confirm('¿Seguro que deseas eliminar esta cámara?');" style="color: #ef4444; text-decoration: none; font-size: 11px; font-weight: bold;">🗑️ Borrar</a>
                     </div>

@@ -1,102 +1,140 @@
 {% extends 'staff/base_staff.html' %}
 
 {% block content %}
-
-<!-- ESTILOS LOCALES PARA ALERTAS (Evita errores en VS Code) -->
 <style>
-    .alerta-base {
-        padding: 12px; 
-        border-radius: 6px; 
-        font-size: 13px; 
-        font-weight: 600;
-        margin-bottom: 10px;
-    }
-    .alerta-error {
-        background-color: #fee2e2; 
-        color: #991b1b; 
-        border: 1px solid #f87171;
-    }
-    .alerta-exito {
-        background-color: #d1fae5; 
-        color: #065f46; 
-        border: 1px solid #34d399;
-    }
+    .alerta-base { padding: 12px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+    .alerta-error { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+    .alerta-exito { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+    .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 50; justify-content: center; align-items: center; }
+    .modal-content { background: white; padding: 20px; border-radius: 8px; width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 </style>
 
 <div class="staff-card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <h3 style="margin: 0;"> Repositorio Central de Inteligencia Artificial</h3>
-            <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">Sube tus modelos .pt entrenados. Las cámaras los descargarán automáticamente (OTA).</p>
+            <h3 style="margin: 0;">📦 Model Registry (MLOps)</h3>
+            <p style="font-size: 13px; color: #6b7280; margin-top: 5px;">Gestiona el ciclo de vida de tus modelos. Las cámaras sincronizarán la versión activa.</p>
         </div>
+        
+        <!-- NUEVO BOTÓN DE EXTRACCIÓN -->
+        <a href="{% url 'descargar_dataset_curado' %}" class="btn-primary" style="background: #10b981; text-decoration: none; padding: 10px 20px; font-weight: bold; border-radius: 6px;">
+            📥 Descargar Dataset Curado
+        </a>
     </div>
 
-    <!-- MENSAJES DE ALERTA -->
     {% if messages %}
     <div style="margin-bottom: 15px; width: 100%;">
         {% for message in messages %}
-        <div class="alerta-base {% if message.tags == 'error' %}alerta-error{% else %}alerta-exito{% endif %}">
-            {{ message }}
-        </div>
+        <div class="alerta-base {% if message.tags == 'error' %}alerta-error{% else %}alerta-exito{% endif %}">{{ message }}</div>
         {% endfor %}
     </div>
     {% endif %}
 
-    <!-- FORMULARIO DE SUBIDA -->
-    <form method="POST" enctype="multipart/form-data" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
+    <!-- FORMULARIO: CREAR NUEVO MODELO PADRE -->
+    <form method="POST" action="{% url 'crear_modelo_base' %}" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px dashed #cbd5e1; margin-bottom: 30px;">
         {% csrf_token %}
-        
         <div>
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Versión / Nombre</label>
-            <input type="text" name="version" class="form-control" placeholder="Ej. YOLOv8_Ensamblaje_v2" required style="width: 200px;">
+            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Nombre del Proyecto</label>
+            <input type="text" name="nombre" class="form-control" placeholder="Ej. Detector Frontal L1" required style="width: 200px;">
         </div>
-
         <div>
             <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Industria Objetivo</label>
             <select name="tipo_industria" class="form-control" required style="width: 180px;">
                 <option value="metales">Metalmecánica</option>
-                <option value="plasticos">Plásticos y Moldeo</option>
+                <option value="ladrillos">Materiales/Construcción</option>
                 <option value="textiles">Textil</option>
-                <option value="ensamblaje">Ensamblaje General</option>
+                <option value="general">Ensamblaje General</option>
             </select>
         </div>
-
-        <div style="flex-grow: 1;">
-            <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151;">Archivo de Pesos (.pt)</label>
-            <input type="file" name="archivo" accept=".pt" required style="font-size: 13px; padding: 5px;">
-        </div>
-
-        <button type="submit" class="btn-primary" style="height: 38px; padding: 0 20px; background: #4f46e5;">☁️ Subir Modelo a la Nube</button>
+        <button type="submit" class="btn-primary" style="height: 38px; padding: 0 20px; background: #4f46e5;">📁 Crear Contenedor de Modelo</button>
     </form>
 
-    <!-- LISTADO DE MODELOS -->
+    <!-- LISTADO DE MODELOS Y VERSIONES -->
     <table class="staff-table">
         <thead>
             <tr>
-                <th>Versión</th>
+                <th>Modelo Base</th>
                 <th>Industria</th>
-                <th>Tamaño (MB)</th>
-                <th>Fecha de Subida</th>
-                <th>Acciones</th>
+                <th>Versión en Producción</th>
+                <th>Acciones y Mantenimiento</th>
             </tr>
         </thead>
         <tbody>
             {% for modelo in modelos %}
             <tr>
-                <td style="font-size: 13px; font-weight: bold; color: #1e40af;">{{ modelo.version }}</td>
+                <td><strong>{{ modelo.nombre }}</strong></td>
                 <td style="font-size: 12px;">{{ modelo.get_tipo_industria_display }}</td>
-                <td style="font-size: 12px; color: #6b7280;">{{ modelo.archivo.size|filesizeformat }}</td>
-                <td style="font-size: 12px;">{{ modelo.fecha_subida|date:"d M Y, H:i" }}</td>
                 <td>
-                    <a href="{% url 'eliminar_modelo' modelo.id %}" onclick="return confirm('¿Estás seguro de eliminar este modelo? Las cámaras que lo usan dejarán de funcionar hasta que les asignes uno nuevo.');" style="color: #dc2626; text-decoration: none; font-size: 12px; font-weight: bold;">🗑️ Eliminar</a>
+                    {% if modelo.version_activa %}
+                        <span style="background: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-weight:bold; font-size: 11px;">🟢 {{ modelo.version_activa.version }}</span>
+                        <div style="font-size: 10px; color: #6b7280; margin-top: 4px;">{{ modelo.version_activa.archivo.size|filesizeformat }}</div>
+                    {% else %}
+                        <span style="color: #ef4444; font-size: 11px; font-weight: bold;">⚠️ Sin versión entrenada</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="abrirModalVersion({{ modelo.id }}, '{{ modelo.nombre }}')" class="btn-primary" style="background: #3b82f6; font-size: 11px; padding: 5px 10px; border: none; cursor: pointer;">⬆️ Subir nueva versión (.pt)</button>
+                        <a href="{% url 'eliminar_modelo' modelo.id %}" onclick="return confirm('¿Eliminar todo el historial de este modelo?');" style="color: #ef4444; text-decoration: none; font-size: 11px; font-weight: bold; margin-left: 10px; line-height: 25px;">🗑️ Borrar</a>
+                    </div>
+                    
+                    <!-- HISTORIAL DESPLEGABLE NATIVO -->
+                    <details style="margin-top: 10px; font-size: 11px; color: #4b5563;">
+                        <summary style="cursor: pointer; font-weight: bold; color: #4f46e5;">📜 Ver historial ({{ modelo.versiones.count }} iteraciones)</summary>
+                        <ul style="margin-top: 8px; padding-left: 15px; border-left: 2px solid #e5e7eb; list-style: none;">
+                            {% for v in modelo.versiones.all %}
+                                <li style="margin-bottom: 6px;">
+                                    <strong>{{ v.version }}</strong> - {{ v.fecha_subida|date:"d M, H:i" }}
+                                    {% if not v.activa %}
+                                        <a href="{% url 'activar_version' v.id %}" style="color: #10b981; margin-left: 10px; text-decoration: none; font-weight: bold;">[Hacer Activa]</a>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </details>
                 </td>
             </tr>
             {% empty %}
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 30px; color: #6b7280;">No hay modelos de IA en el repositorio. Sube el primer archivo .pt</td>
-            </tr>
+            <tr><td colspan="4" style="text-align: center; padding: 30px; color: #6b7280;">No hay proyectos de IA en el repositorio.</td></tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+
+<!-- MODAL PARA SUBIR NUEVA VERSIÓN (PESOS .PT) -->
+<div id="modalVersion" class="modal-backdrop">
+    <div class="modal-content">
+        <h4 style="margin-top: 0;">Actualizar: <span id="modalModeloNombre" style="color: #4f46e5;"></span></h4>
+        <form method="POST" action="{% url 'subir_version_modelo' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="modelo_id" id="modalModeloId">
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Etiqueta de Versión</label>
+                <input type="text" name="version" class="form-control" placeholder="Ej. v2.1-DatasetAmpliacion" required style="width: 100%;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Archivo de Pesos (.pt)</label>
+                <input type="file" name="archivo" accept=".pt" required style="width: 100%; border: 1px solid #cbd5e1; padding: 5px; border-radius: 4px;">
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="cerrarModalVersion()" class="btn-primary" style="background: #9ca3af; border: none; cursor: pointer;">Cancelar</button>
+                <button type="submit" class="btn-primary" style="background: #10b981; border: none; cursor: pointer;">Subir e Implementar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function abrirModalVersion(id, nombre) {
+        document.getElementById('modalModeloId').value = id;
+        document.getElementById('modalModeloNombre').innerText = nombre;
+        document.getElementById('modalVersion').style.display = 'flex';
+    }
+    function cerrarModalVersion() {
+        document.getElementById('modalVersion').style.display = 'none';
+    }
+</script>
 {% endblock %}

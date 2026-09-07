@@ -1,1 +1,17 @@
 *.deb
+*.db
+*.sqlite3
+db.sqlite3
+
+capturas_falla/
+media/dataset_curado/
+media/modelos_ia/
+*.zip
+*.pt
+
+dist/
+build/
+*.spec
+env/
+__pycache__/
+*.pyc

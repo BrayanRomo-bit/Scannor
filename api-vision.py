@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, HTTPException, status, Security, Query
 from fastapi.security.api_key import APIKeyHeader
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -12,6 +12,8 @@ from uuid import uuid4
 import collections
 import sqlite3
 import cv2
+import socket
+import shutil
 import json
 import numpy as np
 import time
@@ -103,7 +105,19 @@ DJANGO_API_URL = os.getenv("DJANGO_API_URL", "http://127.0.0.1:8000/api/guardar-
 if not all([DEVICE_ID, DEVICE_API_KEY, ADMIN_API_KEY, STREAM_TOKEN]):
     raise RuntimeError("CRÍTICO: Faltan llaves de seguridad en el entorno (DEVICE_ID, DEVICE_KEY, ADMIN o STREAM).")
 
-EDGE_PUBLIC_URL = os.getenv("EDGE_PUBLIC_URL", "http://127.0.0.1:8001").rstrip('/')
+def obtener_ip_local():
+    try:
+        # Crea una conexión silenciosa al exterior para descubrir la IP física asignada por el router
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_fisica = s.getsockname()[0]
+        s.close()
+        return ip_fisica
+    except Exception:
+        return "127.0.0.1"
+
+# Construye la URL pública usando la IP real de la máquina en la red local
+EDGE_PUBLIC_URL = os.getenv("EDGE_PUBLIC_URL", f"http://{obtener_ip_local()}:8001").rstrip('/')
 DB_PATH = os.path.join(directorio_base, os.getenv("SCANNOR_DB_PATH", "scannor_offline.db"))
 ARCHIVO_CONFIG = os.path.join(directorio_base, 'config_camaras.json')
 
@@ -136,10 +150,15 @@ async def verificar_stream_token(token: str = Query(None)):
 # 3. COLAS ASÍNCRONAS Y SQLITE
 # ==========================================
 def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
+    conn = sqlite3.connect(DB_PATH)
+    try:
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute('''CREATE TABLE IF NOT EXISTS inspecciones 
                      (uid TEXT PRIMARY KEY, payload TEXT, sync INTEGER DEFAULT 0, sync_retries INTEGER DEFAULT 0)''')
+        conn.commit()
+    finally:
+        conn.close()
+
 init_db()
 
 db_queue = queue.Queue(maxsize=500) 
@@ -177,24 +196,47 @@ def img_writer_worker():
             img_queue.task_done()
 
 def db_writer_worker():
-    while True:
-        evento = db_queue.get()
-        if evento is None: 
-            db_queue.task_done(); break
-        try:
-            with sqlite3.connect(DB_PATH, timeout=5.0) as conn:
-                conn.execute("INSERT OR IGNORE INTO inspecciones (uid, payload, sync, sync_retries) VALUES (?, ?, 0, 0)",
-                             (evento["uid"], json.dumps(evento)))
-        except Exception as e:
-            if evento.get("insert_retry_count", 0) < 3:
-                evento["insert_retry_count"] = evento.get("insert_retry_count", 0) + 1
-                time.sleep(0.5) 
-                db_queue.put(evento)
-            else:
-                print(f"CRÍTICO: Evento perdido tras 3 reintentos I/O local: {evento.get('uid', 'Desconocido')}")
-                estado_sincronizacion["eventos_perdidos_local"] += 1
-        finally:
-            db_queue.task_done()
+    """Conexión SQLite persistente para todo el ciclo de vida del worker:
+    se abre una sola vez y se reutiliza, en vez de abrir/cerrar una conexión
+    por cada evento. Si la conexión queda en mal estado, se reabre sola."""
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    try:
+        while True:
+            evento = db_queue.get()
+            if evento is None:
+                db_queue.task_done()
+                break
+            try:
+                conn.execute(
+                    "INSERT OR IGNORE INTO inspecciones (uid, payload, sync, sync_retries) VALUES (?, ?, 0, 0)",
+                    (evento["uid"], json.dumps(evento))
+                )
+                conn.commit()
+            except Exception as e:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+                if isinstance(e, sqlite3.Error):
+                    print(f"CRÍTICO: Error de SQLite en db_writer_worker, reconectando: {e}")
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+
+                if evento.get("insert_retry_count", 0) < 3:
+                    evento["insert_retry_count"] = evento.get("insert_retry_count", 0) + 1
+                    time.sleep(0.5) 
+                    db_queue.put(evento)
+                else:
+                    print(f"CRÍTICO: Evento perdido tras 3 reintentos I/O local: {evento.get('uid', 'Desconocido')}")
+                    estado_sincronizacion["eventos_perdidos_local"] += 1
+            finally:
+                db_queue.task_done()
+    finally:
+        conn.close()
 
 def persistir_evento(registro):
     global total_eventos_procesados
@@ -210,9 +252,12 @@ def persistir_evento(registro):
         total_eventos_procesados += 1
 
 def background_sync_worker():
-    while True:
-        try:
-            with sqlite3.connect(DB_PATH, timeout=5.0) as conn:
+    """Misma idea que db_writer_worker: una conexión persistente para todo el
+    ciclo de vida del hilo, con reconexión automática ante errores de SQLite."""
+    conn = sqlite3.connect(DB_PATH, timeout=5.0)
+    try:
+        while True:
+            try:
                 c = conn.cursor()
                 c.execute("SELECT uid, payload, sync_retries FROM inspecciones WHERE sync = 0 ORDER BY rowid ASC LIMIT 15")
                 filas = c.fetchall()
@@ -220,6 +265,7 @@ def background_sync_worker():
                 for uid, payload_str, retries in filas:
                     if retries >= 10:
                         conn.execute("UPDATE inspecciones SET sync = 2 WHERE uid = ?", (uid,))
+                        conn.commit()
                         estado_sincronizacion["errores_permanentes"] += 1
                         print(f"CRÍTICO: Evento {uid} abandonado. Máximo de retries superado.")
                         continue
@@ -228,21 +274,40 @@ def background_sync_worker():
                         res = requests.post(DJANGO_API_URL, json=json.loads(payload_str), headers={"X-Device-Auth": DEVICE_API_KEY}, timeout=3.0)
                         res.raise_for_status() 
                         conn.execute("UPDATE inspecciones SET sync = 1 WHERE uid = ?", (uid,))
+                        conn.commit()
                         estado_sincronizacion["ultimo_exito"] = time.time()
                     except requests.exceptions.HTTPError as he:
                         status_code = he.response.status_code
                         if 400 <= status_code < 500 and status_code not in (408, 429):
                             conn.execute("UPDATE inspecciones SET sync = 2 WHERE uid = ?", (uid,))
+                            conn.commit()
                             estado_sincronizacion["errores_permanentes"] += 1
                             print(f"Poison Pill {status_code} detectada y aislada para UID: {uid}")
                         else:
                             conn.execute("UPDATE inspecciones SET sync_retries = sync_retries + 1 WHERE uid = ?", (uid,))
-                    except requests.exceptions.RequestException as e:
+                            conn.commit()
+                    except requests.exceptions.RequestException:
                         conn.execute("UPDATE inspecciones SET sync_retries = sync_retries + 1 WHERE uid = ?", (uid,))
+                        conn.commit()
                         break 
-        except Exception:
-            pass 
-        time.sleep(5)
+
+            except sqlite3.Error as db_err:
+                print(f"CRÍTICO: Error de SQLite en worker de sincronización, reconectando: {db_err}")
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                conn = sqlite3.connect(DB_PATH, timeout=5.0)
+            except Exception as e:
+                print(f"CRÍTICO: Error en worker de sincronización: {e}")
+
+            time.sleep(5)
+    finally:
+        conn.close()
 
 # ==========================================
 # 4. CICLO DE VIDA FASTAPI
@@ -324,8 +389,14 @@ if not os.path.exists(ruta_modelo):
 
 try:
     model = YOLO(ruta_modelo)
+    # Prueba de humo: corremos una inferencia dummy ANTES de arrancar el motor.
+    # Así detectamos de inmediato problemas de entorno (ej. torch/torchvision
+    # desincronizados -> "operator torchvision::nms does not exist") en vez de
+    # descubrirlo en producción, con el hilo de visión fallando en bucle cada
+    # segundo sin que el modelo llegue a funcionar nunca.
+    model.predict(np.zeros((640, 640, 3), dtype=np.uint8), verbose=False)
 except Exception as e:
-    print(f"Error al cargar YOLO. Detalle: {e}")
+    print(f"CRÍTICO: El modelo no cargó o falló la prueba de inferencia. Revisa que torch y torchvision sean versiones compatibles entre sí. Detalle: {e}")
     model = None
 
 failures = collections.deque(maxlen=MAX_FAILURES_BUFFER)
@@ -336,59 +407,111 @@ class LectorCamaraAsincrono:
     def __init__(self, src):
         self.src = src
         self.lock = threading.Lock()
+        self.corriendo = False
+        self.ret = False
+        self.frame = None
+        self.cap = None
+
+        # Selección estricta de Backend según SO
+        sistema = platform.system()
+        if sistema == "Windows":
+            self.backend = cv2.CAP_DSHOW
+        elif sistema == "Linux":
+            self.backend = cv2.CAP_V4L2
+        else:
+            self.backend = cv2.CAP_ANY
+
         self.conectar()
         self.hilo = threading.Thread(target=self.actualizar, daemon=True)
         self.hilo.start()
 
     def conectar(self):
-        self.cap = cv2.VideoCapture(self.src)
-        if self.cap.isOpened():
-            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            ret, frame = self.cap.read()
+        """Publica self.cap = None brevemente bajo el lock mientras se abre la
+        cámara nueva FUERA del lock (cv2.VideoCapture + el primer read() pueden
+        tardar cientos de ms). Así una cámara reconectando no bloquea leer()
+        de las otras cámaras, que comparten el mismo patrón de lock."""
+        with self.lock:
+            cap_anterior = self.cap
+            self.cap = None
+        if cap_anterior is not None and cap_anterior.isOpened():
+            cap_anterior.release()
+
+        nuevo_cap = cv2.VideoCapture(self.src, self.backend)
+        if nuevo_cap.isOpened():
+            nuevo_cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+            nuevo_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            nuevo_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            ret, frame = nuevo_cap.read()
             with self.lock:
+                self.cap = nuevo_cap
                 self.ret = ret
                 self.frame = frame
                 self.corriendo = True
         else:
             with self.lock:
+                self.cap = nuevo_cap
                 self.corriendo = False
                 self.ret = False
                 self.frame = None
 
     def actualizar(self):
-        fallos_consecutivos = 0
+        tiempo_espera_reconexion = 5.0
+        ultimo_frame_valido = time.time()
+
         while True:
-            with self.lock: corriendo = self.corriendo
-            if not corriendo:
+            try:
+                with self.lock:
+                    corriendo = self.corriendo
+                    cap_actual = self.cap
+                    cap_abierto = cap_actual is not None and cap_actual.isOpened()
+
+                if not corriendo or not cap_abierto:
+                    time.sleep(tiempo_espera_reconexion)
+                    self.conectar()
+                    
+                    # Backoff exponencial (hasta 60 segundos)
+                    tiempo_espera_reconexion = min(tiempo_espera_reconexion * 2, 60.0)
+                    ultimo_frame_valido = time.time()
+                    continue
+
+                tiempo_espera_reconexion = 5.0
+
+                ret, frame = cap_actual.read()
+                t_actual = time.time()
+
+                with self.lock:
+                    self.ret = ret
+                    self.frame = frame
+
+                # Umbral de tolerancia basado en tiempo (3 segundos reales)
+                if ret:
+                    ultimo_frame_valido = t_actual
+                elif (t_actual - ultimo_frame_valido) > 3.0:
+                    print(f"[-] Pérdida de señal en cámara {self.src}. Iniciando reconexión...")
+                    with self.lock:
+                        self.corriendo = False
+                        if self.cap:
+                            self.cap.release()
+                            
+            except Exception as e:
+                print(f"[!] Excepción en hilo de cámara {self.src}: {e}")
+                with self.lock:
+                    self.corriendo = False
+                    if self.cap:
+                        self.cap.release()
                 time.sleep(5)
-                self.conectar()
-                continue
 
-            ret, frame = self.cap.read()
-            with self.lock:
-                self.ret = ret
-                self.frame = frame
-
-            if not ret:
-                fallos_consecutivos += 1
-                if fallos_consecutivos > 30:
-                    self.cap.release()
-                    with self.lock: self.corriendo = False 
-                    fallos_consecutivos = 0
-            else:
-                fallos_consecutivos = 0
-
-            time.sleep(0.03) 
+            time.sleep(0.03)
 
     def leer(self):
         with self.lock:
             return self.ret, self.frame.copy() if self.frame is not None else None
 
     def detener(self):
-        with self.lock: self.corriendo = False
-        if hasattr(self, 'cap') and self.cap.isOpened(): self.cap.release()
+        with self.lock:
+            self.corriendo = False
+            if self.cap is not None and self.cap.isOpened():
+                self.cap.release()
 
 def sanitizar_texto(texto):
     s = re.sub(r'[^a-zA-Z0-9_\-]', '', texto)[:50]
@@ -462,7 +585,8 @@ def procesar_video_continuo():
 
                     # 1. TRACKING SIN FRAGMENTACIÓN
                     qr_texto = None
-                    if s1 and frame1 is not None:
+                    camara_frontal_activa = s1 and frame1 is not None
+                    if camara_frontal_activa:
                         vis_frame1 = frame1.copy()
                         codigos_qr = decode(cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY))
                         if codigos_qr:
@@ -492,7 +616,12 @@ def procesar_video_continuo():
                                 "confianza": 0.0, "evidencia": vista_panoramica.copy()
                             }
                         id_en_transito = instancia_activa_id
-                    else:
+                    elif camara_frontal_activa:
+                        # Solo generamos tracking sintético ("Falta_QR") si la cámara
+                        # frontal SÍ está entregando imagen y simplemente no hay QR
+                        # legible. Si la cámara está caída (sin señal), no hay ninguna
+                        # pieza física que evaluar, así que no se crea nada aquí — el
+                        # placeholder "SIN SENAL" nunca debe terminar como evidencia.
                         if id_en_transito is None or (t_actual - tiempo_ultimo_qr) > 1.5:
                             if (t_actual - ultimo_reporte) > TIEMPO_GC:
                                 if id_en_transito is None or not id_en_transito.startswith("Sintetico_"):
@@ -586,11 +715,18 @@ def procesar_video_continuo():
                                 id_en_transito = None
 
                         if tiempo_en_escena > TIEMPO_VIDA_MAX:
+                            # Red de seguridad: si por cualquier motivo sigue "evaluando" al
+                            # llegar aquí, se reporta antes de borrarla para que nunca
+                            # desaparezca del tracking sin dejar registro.
+                            if info["estado"] == "evaluando":
+                                reportar_inspeccion(info, info["lote"], "Requiere_Revision", "Tiempo_Maximo_Excedido", info["confianza"], t_actual)
+                                info["estado"] = "revision"
                             lotes_a_borrar.append(tid)
                         elif tiempo_sin_ver > TIEMPO_GC:
                             if info["estado"] == "evaluando":
                                 falla_reporte = info["falla"] if info["falla"] != "Desconocida" else ("Falta_QR" if info["lote"] == "Lote_Desconocido" else "Perdida_Visual")
                                 reportar_inspeccion(info, info["lote"], "Requiere_Revision", falla_reporte, info["confianza"], t_actual)
+                                info["estado"] = "revision"
                             lotes_a_borrar.append(tid)
 
                     for tid in lotes_a_borrar:
@@ -613,6 +749,13 @@ def procesar_video_continuo():
                     camaras_inicializadas = False
                     with state_lock:
                         for k in estado_camaras: estado_camaras[k] = False
+
+                    # Antes de descartar el tracking, reportamos cualquier pieza que haya
+                    # quedado a medio evaluar para no perderla en silencio al detener el motor.
+                    for tid, info in piezas_en_escena.items():
+                        if info["estado"] == "evaluando":
+                            reportar_inspeccion(info, info["lote"], "Requiere_Revision", "Motor_Detenido", info["confianza"], time.time())
+
                     frame_global_codificado = None; id_en_transito = None; piezas_en_escena.clear()
                 time.sleep(0.5)
         except Exception as e:
@@ -650,8 +793,12 @@ def stop_motor():
 @app.delete("/api/clear", dependencies=[Security(verificar_api_key)])
 def clear_history():
     with state_lock: failures.clear()
-    with sqlite3.connect(DB_PATH) as conn:
+    conn = sqlite3.connect(DB_PATH)
+    try:
         conn.execute("DELETE FROM inspecciones WHERE sync = 1")
+        conn.commit()
+    finally:
+        conn.close()
     return {"status": "Memoria limpia. Datos pendientes preservados."}
 
 async def servidor_streaming_web():
@@ -702,6 +849,44 @@ def escanear_hardware():
         cap.release()  
     return {"puertos_disponibles": puertos_activos, "config_actual": config, "error": None}
 
+@app.post("/api/actualizar-modelo-ahora", dependencies=[Security(verificar_api_key)])
+def trigger_hot_reload():
+    global model, motor_activo
+    
+    # 1. Guardamos el estado actual
+    estaba_activo = motor_activo 
+    
+    # 2. Pausamos el motor para liberar la memoria y evitar choques
+    with state_lock:
+        motor_activo = False
+    
+    print("\n[OTA] Iniciando Hot Reload de modelo de IA...")
+    
+    # 3. Descargamos el nuevo archivo .pt (reutiliza la función del inicio)
+    actualizar_modelo_ota()
+    
+    if not os.path.exists(ruta_modelo):
+        raise HTTPException(status_code=500, detail="Fallo OTA: El archivo no se descargó correctamente.")
+        
+    try:
+        print("[OTA] Cargando nuevo modelo en memoria RAM...")
+        nuevo_modelo = YOLO(ruta_modelo)
+        
+        # Prueba de humo obligatoria antes de autorizarlo
+        nuevo_modelo.predict(np.zeros((640, 640, 3), dtype=np.uint8), verbose=False)
+        
+        # 4. Intercambiamos el modelo y reanudamos si estaba corriendo
+        with state_lock:
+            model = nuevo_modelo
+            if estaba_activo:
+                motor_activo = True
+                
+        print("[+] Hot Reload exitoso. Motor operando con nuevo modelo.")
+        return {"status": "exito", "mensaje": "Modelo actualizado por red local."}
+    except Exception as e:
+        print(f"[-] Error crítico en Hot Reload: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al cargar el nuevo modelo: {str(e)}")
+
 @app.post("/api/guardar-configuracion", dependencies=[Security(verificar_api_key)])
 def guardar_configuracion(nueva_config: ConfiguracionHardware):
     global motor_activo, config_camaras
@@ -716,6 +901,35 @@ def guardar_configuracion(nueva_config: ConfiguracionHardware):
     with state_lock:
         if motor_activo: motor_activo = False; reiniciado = True
     return {"status": "exito", "mensaje": "Reinicia motor para aplicar" if reiniciado else "Config guardada."}
+
+@app.get("/api/descargar-dataset", dependencies=[Security(verificar_api_key)])
+def descargar_dataset():
+    # 1. Verificamos que la carpeta de capturas exista y tenga fotos
+    if not os.path.exists(ruta_capturas) or not os.listdir(ruta_capturas):
+        raise HTTPException(status_code=404, detail="El dataset de esta cámara está vacío.")
+    
+    print("\n[*] Solicitud de extracción de Dataset recibida.")
+    print("[*] Comprimiendo imágenes y etiquetas YOLO...")
+    
+    # 2. Definimos el nombre del archivo ZIP temporal
+    nombre_zip = f"Dataset_{DEVICE_ID}_{int(time.time())}"
+    ruta_zip_base = os.path.join(directorio_base, nombre_zip)
+    
+    # 3. Comprimimos la carpeta entera (Cross-platform: Windows/Linux)
+    try:
+        shutil.make_archive(ruta_zip_base, 'zip', ruta_capturas)
+        archivo_zip_final = ruta_zip_base + ".zip"
+        print(f"[+] Dataset empaquetado con éxito: {archivo_zip_final}")
+        
+        # 4. Enviamos el archivo pesado por la red al administrador
+        return FileResponse(
+            path=archivo_zip_final, 
+            media_type="application/zip", 
+            filename=f"{nombre_zip}.zip"
+        )
+    except Exception as e:
+        print(f"[-] Error al comprimir el dataset: {e}")
+        raise HTTPException(status_code=500, detail="Error interno al comprimir las imágenes.")
 
 if __name__ == "__main__":
     import uvicorn

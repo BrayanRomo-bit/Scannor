@@ -45,11 +45,18 @@ urlpatterns = [
     path('staff/dispositivo/descargar-env/<int:dispositivo_id>/', views.descargar_env_dispositivo, name='descargar_env_dispositivo'),
     path('staff/dispositivo/editar/<int:dispositivo_id>/', views.editar_dispositivo, name='editar_dispositivo'),
     path('staff/dispositivo/eliminar/<int:dispositivo_id>/', views.eliminar_dispositivo, name='eliminar_dispositivo'),
+    path('staff/dispositivo/dataset/<int:dispositivo_id>/', views.extraer_dataset, name='extraer_dataset'),
+    path('staff/modelo/descargar-dataset-curado/', views.descargar_dataset_curado, name='descargar_dataset_curado'),
+
     path('planta/descargar-instalador/<str:os_type>/', views.descargar_instalador, name='descargar_instalador'),
     path('api/provisionar/', views.api_provisionar_dispositivo, name='api_provisionar_dispositivo'),
 
     path('staff/modelos/', views.staff_modelos, name='staff_modelos'),
+    path('staff/modelo/crear-base/', views.crear_modelo_base, name='crear_modelo_base'),
+    path('staff/modelo/subir-version/', views.subir_version_modelo, name='subir_version_modelo'),
+    path('staff/modelo/activar-version/<int:version_id>/', views.activar_version, name='activar_version'),
     path('staff/modelo/eliminar/<int:modelo_id>/', views.eliminar_modelo, name='eliminar_modelo'),
     path('api/descargar-modelo/', views.api_descargar_modelo, name='api_descargar_modelo'),
 
+    path('staff/dispositivo/push-ota/<int:dispositivo_id>/', views.push_update_ota, name='push_update_ota'),
 ]

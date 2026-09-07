@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import logout
+from django.http import StreamingHttpResponse
 from django.conf import settings
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -10,12 +11,14 @@ from django.contrib.auth import get_user_model
 from django.contrib import messages
 from django.db import IntegrityError
 from django.conf import settings
-from .models import RegistroInspeccion, Usuario, Empresa, ValidacionHumana, Dispositivo, IntentoConexionEdge, ModeloIA
+from .models import RegistroInspeccion, Usuario, Empresa, ValidacionHumana, Dispositivo, IntentoConexionEdge, ModeloIA, VersionModelo
 from urllib.parse import urlparse
 from datetime import datetime
 import requests
 import json 
 import secrets
+import shutil
+import time
 import logging
 import os
 
@@ -107,37 +110,69 @@ DJANGO_API_URL=http://{host_actual}/api/guardar-falla/
     
     return response
 
+# ==========================================
+# GESTIÓN DE MODEL REGISTRY (MLOPS)
+# ==========================================
 @login_required
 @user_passes_test(es_superadmin)
 def staff_modelos(request):
-    if request.method == 'POST':
-        version = request.POST.get('version')
-        tipo_industria = request.POST.get('tipo_industria')
-        descripcion = request.POST.get('descripcion', '')
-        archivo = request.FILES.get('archivo')
-
-        if archivo and archivo.name.endswith('.pt'):
-            nuevo_modelo = ModeloIA(
-                version=version,
-                tipo_industria=tipo_industria,
-                archivo=archivo
-            )
-            nuevo_modelo.save()
-            messages.success(request, f"Modelo {version} subido y listo para despliegue OTA.")
-        else:
-            messages.error(request, "Error: El archivo debe tener la extensión .pt (PyTorch/YOLO).")
-            
-        return redirect('staff_modelos')
-
-    modelos = ModeloIA.objects.all().order_by('-fecha_subida')
+    modelos = ModeloIA.objects.all().order_by('-fecha_creacion')
     return render(request, 'staff/modelos.html', {'modelos': modelos})
+
+@login_required
+@user_passes_test(es_superadmin)
+def crear_modelo_base(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        tipo_industria = request.POST.get('tipo_industria')
+        
+        if nombre:
+            ModeloIA.objects.create(nombre=nombre, tipo_industria=tipo_industria)
+            messages.success(request, f"Contenedor '{nombre}' creado. Ahora puedes subirle versiones .pt.")
+        else:
+            messages.error(request, "El nombre del proyecto es obligatorio.")
+    return redirect('staff_modelos')
+
+@login_required
+@user_passes_test(es_superadmin)
+def subir_version_modelo(request):
+    if request.method == 'POST':
+        modelo_id = request.POST.get('modelo_id')
+        version = request.POST.get('version')
+        archivo = request.FILES.get('archivo')
+        
+        if modelo_id and version and archivo:
+            if not archivo.name.endswith('.pt'):
+                messages.error(request, "Error: El archivo debe ser un modelo de PyTorch (.pt).")
+                return redirect('staff_modelos')
+            
+            modelo = get_object_or_404(ModeloIA, id=modelo_id)
+            VersionModelo.objects.create(
+                modelo=modelo,
+                version=version,
+                archivo=archivo,
+                activa=True 
+            )
+            messages.success(request, f"Versión {version} desplegada en '{modelo.nombre}'.")
+        else:
+            messages.error(request, "Faltan datos para subir la versión.")
+    return redirect('staff_modelos')
+
+@login_required
+@user_passes_test(es_superadmin)
+def activar_version(request, version_id):
+    version = get_object_or_404(VersionModelo, id=version_id)
+    version.activa = True
+    version.save()
+    messages.success(request, f"Rollback exitoso. La versión {version.version} vuelve a estar en producción.")
+    return redirect('staff_modelos')
 
 @login_required
 @user_passes_test(es_superadmin)
 def eliminar_modelo(request, modelo_id):
     modelo = get_object_or_404(ModeloIA, id=modelo_id)
     modelo.delete()
-    messages.success(request, "Modelo eliminado correctamente del repositorio central.")
+    messages.success(request, "Proyecto de IA y todo su historial de versiones eliminados.")
     return redirect('staff_modelos')
 
 @csrf_exempt
@@ -148,16 +183,20 @@ def api_descargar_modelo(request):
     if not dispositivo:
         return JsonResponse({"error": "No autorizado. API Key inválida."}, status=403)
         
-    if not dispositivo.modelo_asignado or not dispositivo.modelo_asignado.archivo:
-        return JsonResponse({"error": "Esta cámara no tiene un modelo de IA asignado."}, status=404)
+    if not dispositivo.modelo_asignado:
+        return JsonResponse({"error": "Esta cámara no tiene un proyecto de IA asignado."}, status=404)
 
-    ruta_archivo = dispositivo.modelo_asignado.archivo.path
+    version_act = dispositivo.modelo_asignado.version_activa
+    
+    if not version_act or not version_act.archivo:
+        return JsonResponse({"error": "El proyecto asignado no tiene ninguna versión .pt activa."}, status=404)
+
+    ruta_archivo = version_act.archivo.path
     
     if os.path.exists(ruta_archivo):
         response = FileResponse(open(ruta_archivo, 'rb'), content_type='application/octet-stream')
-        response['Content-Disposition'] = f'attachment; filename="modelo_{dispositivo.modelo_asignado.id}.pt"'
-        
-        response['X-Model-Version'] = str(dispositivo.modelo_asignado.id)
+        response['Content-Disposition'] = f'attachment; filename="modelo_{dispositivo.modelo_asignado.id}_{version_act.version}.pt"'
+        response['X-Model-Version'] = str(version_act.version)
         return response
     else:
         return JsonResponse({"error": "El archivo físico del modelo desapareció del servidor."}, status=500)
@@ -209,7 +248,7 @@ def staff_dispositivos(request):
         device_id = request.POST.get('device_id')
         mac_address = request.POST.get('mac_address')
         empresa_id = request.POST.get('empresa_id')
-        modelo_id = request.POST.get('modelo_id') # ATRAPAMOS EL MODELO
+        modelo_id = request.POST.get('modelo_id')
 
         if nombre and device_id and mac_address and empresa_id:
             try:
@@ -243,7 +282,7 @@ def staff_dispositivos(request):
     intentos_conexion = IntentoConexionEdge.objects.all().order_by('-ultimo_intento')
     
     from .models import ModeloIA
-    modelos_ia = ModeloIA.objects.all().order_by('-id') # ENVIAMOS LOS MODELOS A LA WEB
+    modelos_ia = ModeloIA.objects.all().order_by('-id') 
 
     context = {
         'dispositivos': dispositivos,
@@ -262,10 +301,10 @@ def editar_dispositivo(request, dispositivo_id):
         dispositivo.nombre = request.POST.get('nombre')
         dispositivo.device_id = request.POST.get('device_id')
         dispositivo.mac_address = request.POST.get('mac_address')
+        dispositivo.ip_local = request.POST.get('ip_local')
         
         empresa_id = request.POST.get('empresa_id')
-        if empresa_id:
-            dispositivo.empresa_id = empresa_id
+        if empresa_id: dispositivo.empresa_id = empresa_id
             
         modelo_id = request.POST.get('modelo_id')
         if modelo_id:
@@ -280,10 +319,33 @@ def editar_dispositivo(request, dispositivo_id):
     empresas = Empresa.objects.all()
     modelos = ModeloIA.objects.all()
     return render(request, 'staff/editar_dispositivo.html', {
-        'dispositivo': dispositivo,
-        'empresas': empresas,
-        'modelos': modelos
+        'dispositivo': dispositivo, 'empresas': empresas, 'modelos': modelos
     })
+
+@login_required
+@user_passes_test(es_superadmin)
+def extraer_dataset(request, dispositivo_id):
+    dispositivo = get_object_or_404(Dispositivo, id=dispositivo_id)
+
+    if not dispositivo.ip_local:
+        messages.error(request, f"Error: La cámara '{dispositivo.nombre}' no tiene una IP configurada.")
+        return redirect('staff_dispositivos')
+
+    url_edge = f"http://{dispositivo.ip_local}/api/descargar-dataset"
+
+    try:
+        respuesta = requests.get(url_edge, headers={"X-API-Key": dispositivo.api_key}, stream=True, timeout=15)
+
+        if respuesta.status_code == 200:
+            response = HttpResponse(respuesta.content, content_type='application/zip')
+            response['Content-Disposition'] = f'attachment; filename="Dataset_{dispositivo.nombre}.zip"'
+            return response
+        else:
+            messages.error(request, f"La cámara rechazó la conexión. Código: {respuesta.status_code}")
+    except requests.exceptions.RequestException:
+        messages.error(request, f"No se pudo conectar a la cámara en {dispositivo.ip_local}. ¿Está encendida?")
+
+    return redirect('staff_dispositivos')
 
 @login_required
 @user_passes_test(es_superadmin)
@@ -365,7 +427,7 @@ def gestion_planta(request):
         'operadores': operadores,
         'usuarios_activos': usuarios_activos,
         'limite': empresa_actual.limite_usuarios,
-        'dispositivos': dispositivos_empresa # Se lo pasamos al HTML
+        'dispositivos': dispositivos_empresa
     })
 
 @login_required
@@ -530,9 +592,7 @@ def registrar_falso_positivo(request, uid):
         try:
             inspeccion = RegistroInspeccion.objects.select_related('dispositivo__modelo_asignado').get(uid=uid)
         except RegistroInspeccion.DoesNotExist:
-            return JsonResponse({
-                "error": "La pieza aún se está sincronizando desde la línea o el dispositivo no está correctamente enlazado. Espera 5 segundos e intenta de nuevo."
-            }, status=404)
+            return JsonResponse({"error": "La pieza aún se está sincronizando. Espera 5 segundos."}, status=404)
         
         if not request.user.is_superuser and inspeccion.empresa != request.user.empresa:
             return JsonResponse({"error": "No tienes permiso para alterar esta pieza"}, status=403)
@@ -552,45 +612,50 @@ def registrar_falso_positivo(request, uid):
                 }
             )
             
+            # --- NUEVA LÓGICA MLOPS: Manejo seguro y Falsos Positivos ---
+            modelo = inspeccion.dispositivo.modelo_asignado
+            industria = modelo.tipo_industria if modelo else 'general'
+            
             if es_acierto:
                 inspeccion.estado = 'Rechazado (Auditado)'
-                
-                try:
-                    modelo = inspeccion.dispositivo.modelo_asignado
-                    industria = modelo.tipo_industria if modelo else 'general'
-                    falla_limpia = inspeccion.falla.replace(" ", "_").lower()
-                    
-                    ruta_destino = os.path.join(settings.MEDIA_ROOT, 'dataset_curado', industria, falla_limpia)
-                    os.makedirs(ruta_destino, exist_ok=True)
-                    
-                    nombre_base = os.path.basename(urlparse(inspeccion.imagen).path)
-                    if not nombre_base:
-                        nombre_base = f"{uid}.jpg"
-                        
-                    ruta_img = os.path.join(ruta_destino, nombre_base)
-                    ruta_txt = os.path.join(ruta_destino, nombre_base.replace('.jpg', '.txt'))
-                    
-                    res_img = requests.get(inspeccion.imagen, timeout=5)
-                    if res_img.status_code == 200:
-                        with open(ruta_img, 'wb') as f:
-                            f.write(res_img.content)
-                            
-                        res_txt = requests.get(inspeccion.imagen.replace('.jpg', '.txt'), timeout=5)
-                        if res_txt.status_code == 200:
-                            with open(ruta_txt, 'wb') as f:
-                                f.write(res_txt.content)
-                                
-                        validacion.curado_para_dataset = True
-                        validacion.save()
-                        
-                except Exception as ex_mlops:
-                    logger.error(f"Fallo en MLOps Curación para {uid}: {ex_mlops}")
-
+                falla_limpia = inspeccion.falla.replace(" ", "_").lower()
             else:
                 inspeccion.estado = 'Aprobado (Manual)'
+                falla_limpia = 'piezas_limpias' # Carpeta para falsos positivos
                 
+            ruta_destino = os.path.join(settings.MEDIA_ROOT, 'dataset_curado', industria, falla_limpia)
+            os.makedirs(ruta_destino, exist_ok=True)
+            
+            nombre_base = os.path.basename(urlparse(inspeccion.imagen).path)
+            if not nombre_base:
+                nombre_base = f"{uid}.jpg"
+                
+            ruta_img = os.path.join(ruta_destino, nombre_base)
+            ruta_txt = os.path.join(ruta_destino, nombre_base.replace('.jpg', '.txt'))
+            
+            try:
+                # Descarga la imagen desde el ejecutable Edge
+                res_img = requests.get(inspeccion.imagen, timeout=5)
+                if res_img.status_code == 200:
+                    with open(ruta_img, 'wb') as f:
+                        f.write(res_img.content)
+                        
+                    # Intenta descargar la etiqueta de coordenadas (.txt)
+                    res_txt = requests.get(inspeccion.imagen.replace('.jpg', '.txt'), timeout=5)
+                    if res_txt.status_code == 200:
+                        with open(ruta_txt, 'wb') as f:
+                            f.write(res_txt.content)
+                            
+                    validacion.curado_para_dataset = True
+                    validacion.save()
+                else:
+                    return JsonResponse({"error": f"Error de red. La cámara respondió: {res_img.status_code}. Asegúrate de que el motor Edge siga encendido."}, status=400)
+            except requests.exceptions.RequestException:
+                # Si el programa .exe está cerrado, se atrapa la excepción y se avisa al usuario
+                return JsonResponse({"error": "La cámara está desconectada. El motor Edge (.exe) debe estar encendido para extraer la imagen."}, status=400)
+
             inspeccion.save()
-            return JsonResponse({"status": "Auditoría guardada y dataset curado." if validacion.curado_para_dataset else "Auditoría guardada."})
+            return JsonResponse({"status": "Auditoría guardada y dataset extraído." if validacion.curado_para_dataset else "Auditoría guardada localmente."})
             
         except Exception as e:
             return JsonResponse({"error": f"Error interno: {str(e)}"}, status=500)
@@ -608,10 +673,8 @@ def api_archivar_sesion(request):
         return JsonResponse({"status": "Sesión archivada."})
     return JsonResponse({"error": "Método no permitido"}, status=405)
 
-
 @login_required
 def descargar_instalador(request, os_type):
-    """ Generador temporal del instalador. En el siguiente paso lo conectaremos con tu compilado real """
     if os_type == 'windows':
         filename = "ScannorQA_Edge_Setup.exe"
         content = "ESTE ES UN ARCHIVO PLACEHOLDER SIMULANDO EL EJECUTABLE.\nEn el siguiente paso usaremos PyInstaller para compilar el motor y ponerlo aquí."
@@ -622,3 +685,53 @@ def descargar_instalador(request, os_type):
     response = HttpResponse(content, content_type='application/octet-stream')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+@login_required
+@user_passes_test(es_superadmin)
+def push_update_ota(request, dispositivo_id):
+    dispositivo = get_object_or_404(Dispositivo, id=dispositivo_id)
+    
+    if not dispositivo.ip_local:
+        messages.error(request, f"Error: La cámara '{dispositivo.nombre}' no tiene una IP local configurada.")
+        return redirect('staff_dispositivos')
+        
+    url_edge = f"http://{dispositivo.ip_local}/api/actualizar-modelo-ahora"
+    
+    try:
+        respuesta = requests.post(url_edge, headers={"X-API-Key": dispositivo.api_key}, timeout=30)
+        
+        if respuesta.status_code == 200:
+            messages.success(request, f"¡Actualización OTA en caliente exitosa para la cámara '{dispositivo.nombre}'!")
+        else:
+            detalles = respuesta.json().get('detail', 'Error desconocido')
+            messages.error(request, f"La cámara falló la recarga OTA. Detalle: {detalles}")
+    except requests.exceptions.RequestException:
+        messages.error(request, f"No se pudo contactar a {dispositivo.ip_local}. ¿El motor Edge está corriendo en esa máquina?")
+        
+    return redirect('staff_dispositivos')
+
+@login_required
+@user_passes_test(es_superadmin)
+def descargar_dataset_curado(request):
+    ruta_dataset = os.path.join(settings.MEDIA_ROOT, 'dataset_curado')
+# Verificar si la carpeta existe y tiene contenido
+    if not os.path.exists(ruta_dataset) or not os.listdir(ruta_dataset):
+        messages.error(request, "El dataset curado está vacío. Aún no has auditado piezas en el panel.")
+        return redirect('staff_modelos')
+
+    nombre_zip = f"Dataset_Curado_{int(time.time())}"
+    ruta_zip_base = os.path.join(settings.MEDIA_ROOT, nombre_zip)
+    
+    try:
+        # Comprimir la carpeta de forma nativa
+        shutil.make_archive(ruta_zip_base, 'zip', ruta_dataset)
+        archivo_zip_final = ruta_zip_base + ".zip"
+        
+        # Enviar el archivo al usuario
+        response = FileResponse(open(archivo_zip_final, 'rb'), content_type='application/zip')
+        response['Content-Disposition'] = 'attachment; filename="Dataset_Curado_MLOps.zip"'
+        return response
+    except Exception as e:
+        messages.error(request, f"Error al generar el ZIP: {e}")
+        return redirect('staff_modelos')
+
