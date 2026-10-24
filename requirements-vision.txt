@@ -1,0 +1,31 @@
+# ==============================================================================
+# Dependencias exclusivas para el servicio Edge: api-vision.py
+# ScannorQA - Microservicio de Visión e Inferencia IA
+# ==============================================================================
+
+# Framework Web & API Asíncrona
+fastapi==0.136.1
+uvicorn[standard]==0.47.0
+websockets==16.0
+pydantic==2.13.4
+starlette==1.0.0
+
+# Visión por Computadora & Detección
+opencv-python==4.13.0.92
+pyzbar==0.1.9
+numpy==2.4.6
+pillow==12.2.0
+
+# Motor de Inteligencia Artificial (YOLO & PyTorch)
+ultralytics==8.4.52
+ultralytics-thop==2.0.19
+torch==2.12.0
+torchvision==0.27.0
+
+# Networking & Configuración de Entorno
+requests==2.34.2
+python-dotenv==1.2.2
+
+# NOTA DE SISTEMA (Linux / Debian / Ubuntu):
+# pyzbar requiere la biblioteca del sistema libzbar:
+#   sudo apt-get install -y libzbar0

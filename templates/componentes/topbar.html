@@ -1,0 +1,41 @@
+{% load static %}
+<header class="topbar" role="banner">
+  <div class="header-brand">
+    <div class="brand-icon" aria-hidden="true">
+      <img src="{% static 'img/logo_cyan_128.png' %}" alt="Logo" class="brand-logo-img logo-dark-theme">
+      <img src="{% static 'img/logo_navy_128.png' %}" alt="Logo" class="brand-logo-img logo-light-theme">
+    </div>
+    <div class="brand-text">
+      <h1>
+        {% if user.empresa %}{{ user.empresa.nombre }}{% else %}Scannor QA{% endif %}
+        <span class="brand-badge">BETA</span>
+      </h1>
+      <p>Soluciones inteligentes para tu planta</p>
+    </div>
+  </div>
+
+  <div class="header-actions">
+    
+    <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" onclick="toggleAppTheme()" aria-label="Alternar tema de color" title="Alternar tema de color (Claro / Oscuro)">
+      <i id="theme-toggle-icon" class="ph-bold ph-sun" aria-hidden="true"></i>
+      <span id="theme-toggle-label">Modo Claro</span>
+    </button>
+
+    <button class="icon-btn" type="button" aria-label="Notificaciones del sistema" title="Notificaciones">
+      <i class="ph ph-bell" aria-hidden="true"></i>
+      <span class="notif-badge">3</span>
+    </button>
+
+    <div class="user-chip" role="region" aria-label="Perfil del usuario">
+      <div class="user-avatar" aria-hidden="true"><i class="ph ph-user"></i></div>
+      <div class="user-info">
+        <div class="user-name">{{ user.username }}</div>
+        <div class="user-meta">{{ user.get_rol_display }} | {% if user.empresa %}{{ user.empresa.nombre }}{% else %}Staff Central{% endif %}</div>
+      </div>
+      <form action="{% url 'logout' %}" method="POST" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="logout-btn" title="Cerrar sesión">Salir</button>
+      </form>
+    </div>
+  </div>
+</header>

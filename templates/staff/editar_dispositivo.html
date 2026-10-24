@@ -46,7 +46,7 @@
                 <option value="">Ninguno (Solo validación visual manual)</option>
                 {% for modelo in modelos %}
                     <option value="{{ modelo.id }}" {% if dispositivo.modelo_asignado_id == modelo.id %}selected{% endif %}>
-                        {{ modelo.version }} ({{ modelo.get_tipo_industria_display }})
+                        {{ modelo.nombre }} ({{ modelo.get_tipo_industria_display }})
                     </option>
                 {% endfor %}
             </select>

@@ -24,24 +24,33 @@ urlpatterns = [
 
     path('', views.dashboard, name='dashboard'),
     path('personalizacion/', views.personalizacion, name='personalizacion'),
-
+    path('api/edge-status/', views.api_edge_status, name='api_edge_status'),    
     path('sala-de-espera/', views.sala_espera, name='sala_espera'),
     path('api/guardar-falla/', views.recibir_falla_api, name='recibir_falla'),
     path('api/resultados/', views.api_obtener_resultados, name='api_obtener_resultados'),
     path('api/archivar-sesion/', views.api_archivar_sesion, name='api_archivar_sesion'), 
+    path('api/borrar-todas-imagenes/', views.api_borrar_todas_imagenes, name='api_borrar_todas_imagenes'),
     path('login/', views.login_usuario, name='login'),
     path('logout/', views.cerrar_sesion, name='logout'),
 
     path('planta/', views.gestion_planta, name='gestion_planta'),
     path('planta/crear-operador/', views.crear_operador, name='crear_operador'),
+    path('api/dispositivo/control/', views.api_dispositivo_control, name='api_dispositivo_control'),
+    path('api/dispositivo/video-stream/<str:cam_id>/', views.api_dispositivo_video_stream, name='api_dispositivo_video_stream'),
+    path('api/dispositivo/cambiar-modelo/', views.cambiar_modelo_estacion, name='cambiar_modelo_estacion'),
 
     path('api/auditar/falso-positivo/<str:uid>/', views.registrar_falso_positivo, name='registrar_falso_positivo'),
+    path('api/inspeccion/imagen/<str:uid>/', views.api_servir_imagen_inspeccion, name='api_servir_imagen_inspeccion'),
     path('staff/empresas/', views.staff_empresas, name='staff_empresas'),
     path('staff/dispositivos/', views.staff_dispositivos, name='staff_dispositivos'),
     path('staff/usuarios/', views.staff_usuarios, name='staff_usuarios'),
     path('staff/empresa/toggle/<int:empresa_id>/', views.toggle_empresa, name='toggle_empresa'),
     path('staff/usuario/toggle/<int:usuario_id>/', views.toggle_usuario, name='toggle_usuario'),
     
+    path('exportar-pdf/', views.exportar_pdf_resultados, name='exportar_pdf'),
+    path('exportar-csv/', views.exportar_csv_resultados, name='exportar_csv'),
+    path('exportar/excel/', views.exportar_excel_resultados, name='exportar_excel_resultados'),
+
     path('staff/dispositivo/descargar-env/<int:dispositivo_id>/', views.descargar_env_dispositivo, name='descargar_env_dispositivo'),
     path('staff/dispositivo/editar/<int:dispositivo_id>/', views.editar_dispositivo, name='editar_dispositivo'),
     path('staff/dispositivo/eliminar/<int:dispositivo_id>/', views.eliminar_dispositivo, name='eliminar_dispositivo'),

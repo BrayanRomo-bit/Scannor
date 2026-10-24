@@ -1,41 +1,121 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cuenta en Revisión | ScannorQA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Cuenta en Revisión · Scannor QA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v={% now 'U' %}">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('scannor_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <style>
-        body {
-            margin: 0; padding: 0; display: flex; justify-content: center; align-items: center;
-            height: 100vh; background-color: #f3f4f6; font-family: 'Plus Jakarta Sans', sans-serif;
+        .waiting-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-app);
+            padding: 24px;
+            box-sizing: border-box;
         }
-        .tarjeta-espera {
-            background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            text-align: center; max-width: 400px; width: 90%;
+        .waiting-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 40px 32px;
+            border-radius: 16px;
+            box-shadow: var(--shadow-sm);
+            text-align: center;
+            max-width: 440px;
+            width: 100%;
+            box-sizing: border-box;
         }
-        .icono-candado { font-size: 48px; margin-bottom: 20px; }
-        h1 { color: #111827; font-size: 24px; margin-bottom: 10px; }
-        p { color: #6b7280; font-size: 15px; line-height: 1.5; margin-bottom: 25px; }
-        .badge-amarillo {
-            display: inline-block; background: #fef3c7; color: #d97706; padding: 6px 12px;
-            border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 20px;
+        .waiting-icon-box {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            background: var(--accent-amber-subtle);
+            color: var(--accent-amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
         }
-        .btn-regresar {
-            display: inline-block; background-color: #4338ca; color: white; text-decoration: none;
-            padding: 10px 20px; border-radius: 6px; font-weight: 600; transition: background 0.2s;
+        .waiting-title {
+            color: var(--text-main);
+            font-size: 20px;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            letter-spacing: -0.01em;
         }
-        .btn-regresar:hover { background-color: #3730a3; }
+        .waiting-text {
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0 0 16px 0;
+        }
+        .waiting-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--accent-amber-subtle);
+            color: var(--accent-amber);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 11px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .btn-return {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background-color: var(--accent-blue);
+            color: white;
+            text-decoration: none;
+            padding: 11px 24px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            transition: all 0.15s ease;
+            margin-top: 10px;
+        }
+        .btn-return:hover {
+            background-color: #1d4ed8;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
-<body>
-    <div class="tarjeta-espera">
-        <div class="icono-candado"></div>
-        <div class="badge-amarillo">Estado: Pendiente de Aprobación</div>
-        <h1>Acceso Restringido</h1>
-        <p>Tu cuenta ha sido registrada en el sistema central, pero requiere la validación de un <strong>Ingeniero Administrador</strong> para activarse.</p>
-        <p>Por favor, notifica a tu supervisor para que apruebe tu acceso al motor Edge.</p>
-        <a href="/" class="btn-regresar">Volver al Inicio</a>
-    </div>
+<body class="waiting-page">
+    <main class="waiting-card" role="main">
+        <div class="waiting-icon-box" aria-hidden="true">
+            <i class="ph-bold ph-lock-key"></i>
+        </div>
+        <div class="waiting-badge">
+            <i class="ph-bold ph-clock"></i> Pendiente de Aprobación
+        </div>
+        <h1 class="waiting-title">Acceso Restringido</h1>
+        <p class="waiting-text">
+            Tu cuenta ha sido registrada en el sistema central, pero requiere la validación de un <strong>Ingeniero Administrador</strong> para activarse.
+        </p>
+        <p class="waiting-text">
+            Por favor, notifica a tu supervisor para que apruebe tu acceso al motor Edge.
+        </p>
+        <a href="/" class="btn-return">
+            <i class="ph-bold ph-arrow-left"></i> Volver al Inicio
+        </a>
+    </main>
 </body>
 </html>

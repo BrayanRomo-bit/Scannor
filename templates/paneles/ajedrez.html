@@ -1,0 +1,788 @@
+{% load static %}
+
+<div class="chess-container">
+  
+  <div class="chess-header">
+    <div class="chess-header-left">
+      <div class="chess-header-icon">
+        <i class="ph-bold ph-strategy"></i>
+      </div>
+      <div class="chess-title-group">
+        <h2>Control de Conteo y Límites de Lote · Ajedrez</h2>
+        <p>Seguimiento persistente (ByteTrack + LineZone) en banda transportadora sin duplicados.</p>
+      </div>
+    </div>
+    <div class="chess-badges">
+      <span class="chess-pill port"><i class="ph-bold ph-plugs"></i> Edge :8003</span>
+      <span class="chess-pill live" id="chess-conn-status"><i class="ph-bold ph-broadcast"></i> Conectado</span>
+    </div>
+  </div>
+
+  <div class="chess-banner ready" id="chess-status-banner">
+    <span id="chess-banner-text"><i class="ph-bold ph-info"></i> Sistema en reposo. Configura las piezas deseadas y pulsa "Aplicar Límites".</span>
+    <span id="chess-banner-sub" style="font-size: 11px; opacity: 0.85;">Modo Anti-Duplicados Activo</span>
+  </div>
+
+  <div class="chess-grid">
+    
+    <div class="chess-card">
+      <div class="chess-card-header">
+        <h3><i class="ph-bold ph-sliders-horizontal"></i> Configuración de Lote Deseado</h3>
+        <span style="font-size: 11px; color: var(--text-muted);">0 = Sin límite</span>
+      </div>
+
+      <div class="chess-line-config-box">
+        <div class="chess-line-config-header">
+          <span><i class="ph-bold ph-line-segments"></i> LÍNEA VIRTUAL DE CONTEO Y ALARMA</span>
+          <span class="chess-pill live" id="chess-line-badge" style="font-size: 10px; padding: 3px 8px;">HORIZONTAL</span>
+        </div>
+
+        <div>
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">ORIENTACIÓN PARA EL CRUCE Y PITIDO:</div>
+          <div class="chess-seg-control" role="group" aria-label="Orientación de la línea de conteo">
+            <button type="button" class="chess-seg-btn active" id="btn-line-vert" onclick="chessCambiarOrientacionLinea('vertical')">
+              <i class="ph-bold ph-arrows-left-right"></i> Vertical (Izquierda → Derecha)
+            </button>
+            <button type="button" class="chess-seg-btn" id="btn-line-horiz" onclick="chessCambiarOrientacionLinea('horizontal')">
+              <i class="ph-bold ph-arrows-down-up"></i> Horizontal (Arriba / Abajo)
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">
+            <span>CALIBRACIÓN DE POSICIÓN (ENCUADRE):</span>
+            <span class="chess-slider-val" id="chess-line-pos-label">50%</span>
+          </div>
+          <div class="chess-line-slider-row">
+            <input type="range" class="chess-line-slider" id="chess-line-pos-slider" min="10" max="90" step="5" value="50" oninput="chessActualizarSliderVisual(this.value)" onchange="chessCambiarPosicionLinea(this.value)" aria-label="Posición relativa de la línea de conteo">
+          </div>
+        </div>
+
+        <div class="chess-sound-row">
+          <label class="chess-sound-toggle-label" for="chess-sound-toggle">
+            <input type="checkbox" id="chess-sound-toggle" checked onchange="chessToggleSonido(this.checked)">
+            <span><i class="ph-bold ph-speaker-high" id="chess-sound-icon" style="color: var(--accent-cyan);"></i> Pitido al pasar la línea</span>
+          </label>
+          <button type="button" class="chess-btn-beep-test" onclick="chessTestBeep()" title="Prueba el pitido en los altavoces locales y navegador">
+            <i class="ph-bold ph-bell-ringing"></i> Probar Pitido
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">PRESETS RÁPIDOS:</div>
+        <div class="chess-presets">
+          <button type="button" class="chess-preset-btn" onclick="chessAplicarPreset('peones_5')">
+            <img src="{% static 'img/chess/peon_blanco.svg' %}" alt="" class="preset-chess-icon"> 5 Peones Blancos
+          </button>
+          <button type="button" class="chess-preset-btn" onclick="chessAplicarPreset('peones_8')">
+            <img src="{% static 'img/chess/peon_blanco.svg' %}" alt="" class="preset-chess-icon"> 8 Blancos / 8 Negros
+          </button>
+          <button type="button" class="chess-preset-btn" onclick="chessAplicarPreset('partida_16')">
+            <img src="{% static 'img/chess/rey_blanco.svg' %}" alt="" class="preset-chess-icon"> Partida Clásica (16 / 16)
+          </button>
+          <button type="button" class="chess-preset-btn" onclick="chessAplicarPreset('limpiar')">
+            <i class="ph-bold ph-arrow-counter-clockwise"></i> Restablecer a 0
+          </button>
+        </div>
+      </div>
+
+      <div class="chess-pieces-list" id="chess-pieces-container">
+        
+        <div class="chess-piece-item" data-piece="peon_blanco">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/peon_blanco.svg' %}" alt="Peón Blanco" class="chess-piece-icon">
+            </div>
+            <span>Peón Blanco</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Peón Blanco" onclick="chessStep('peon_blanco', -1)">-</button>
+            <input type="number" id="limit-peon_blanco" class="chess-input-val" aria-label="Límite deseado Peón Blanco" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Peón Blanco" onclick="chessStep('peon_blanco', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="torre_blanca">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/torre_blanca.svg' %}" alt="Torre Blanca" class="chess-piece-icon">
+            </div>
+            <span>Torre Blanca</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Torre Blanca" onclick="chessStep('torre_blanca', -1)">-</button>
+            <input type="number" id="limit-torre_blanca" class="chess-input-val" aria-label="Límite deseado Torre Blanca" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Torre Blanca" onclick="chessStep('torre_blanca', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="caballo_blanco">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/caballo_blanco.svg' %}" alt="Caballo Blanco" class="chess-piece-icon">
+            </div>
+            <span>Caballo Blanco</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Caballo Blanco" onclick="chessStep('caballo_blanco', -1)">-</button>
+            <input type="number" id="limit-caballo_blanco" class="chess-input-val" aria-label="Límite deseado Caballo Blanco" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Caballo Blanco" onclick="chessStep('caballo_blanco', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="alfil_blanco">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/alfil_blanco.svg' %}" alt="Alfil Blanco" class="chess-piece-icon">
+            </div>
+            <span>Alfil Blanco</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Alfil Blanco" onclick="chessStep('alfil_blanco', -1)">-</button>
+            <input type="number" id="limit-alfil_blanco" class="chess-input-val" aria-label="Límite deseado Alfil Blanco" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Alfil Blanco" onclick="chessStep('alfil_blanco', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="reina_blanca">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/reina_blanca.svg' %}" alt="Reina Blanca" class="chess-piece-icon">
+            </div>
+            <span>Reina Blanca</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Reina Blanca" onclick="chessStep('reina_blanca', -1)">-</button>
+            <input type="number" id="limit-reina_blanca" class="chess-input-val" aria-label="Límite deseado Reina Blanca" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Reina Blanca" onclick="chessStep('reina_blanca', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="rey_blanco">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/rey_blanco.svg' %}" alt="Rey Blanco" class="chess-piece-icon">
+            </div>
+            <span>Rey Blanco</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Rey Blanco" onclick="chessStep('rey_blanco', -1)">-</button>
+            <input type="number" id="limit-rey_blanco" class="chess-input-val" aria-label="Límite deseado Rey Blanco" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Rey Blanco" onclick="chessStep('rey_blanco', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="peon_negro">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/peon_negro.svg' %}" alt="Peón Negro" class="chess-piece-icon">
+            </div>
+            <span>Peón Negro</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Peón Negro" onclick="chessStep('peon_negro', -1)">-</button>
+            <input type="number" id="limit-peon_negro" class="chess-input-val" aria-label="Límite deseado Peón Negro" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Peón Negro" onclick="chessStep('peon_negro', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="torre_negra">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/torre_negra.svg' %}" alt="Torre Negra" class="chess-piece-icon">
+            </div>
+            <span>Torre Negra</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Torre Negra" onclick="chessStep('torre_negra', -1)">-</button>
+            <input type="number" id="limit-torre_negra" class="chess-input-val" aria-label="Límite deseado Torre Negra" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Torre Negra" onclick="chessStep('torre_negra', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="caballo_negro">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/caballo_negro.svg' %}" alt="Caballo Negro" class="chess-piece-icon">
+            </div>
+            <span>Caballo Negro</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Caballo Negro" onclick="chessStep('caballo_negro', -1)">-</button>
+            <input type="number" id="limit-caballo_negro" class="chess-input-val" aria-label="Límite deseado Caballo Negro" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Caballo Negro" onclick="chessStep('caballo_negro', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="alfil_negro">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/alfil_negro.svg' %}" alt="Alfil Negro" class="chess-piece-icon">
+            </div>
+            <span>Alfil Negro</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Alfil Negro" onclick="chessStep('alfil_negro', -1)">-</button>
+            <input type="number" id="limit-alfil_negro" class="chess-input-val" aria-label="Límite deseado Alfil Negro" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Alfil Negro" onclick="chessStep('alfil_negro', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="reina_negra">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/reina_negra.svg' %}" alt="Reina Negra" class="chess-piece-icon">
+            </div>
+            <span>Reina Negra</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Reina Negra" onclick="chessStep('reina_negra', -1)">-</button>
+            <input type="number" id="limit-reina_negra" class="chess-input-val" aria-label="Límite deseado Reina Negra" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Reina Negra" onclick="chessStep('reina_negra', 1)">+</button>
+          </div>
+        </div>
+
+        <div class="chess-piece-item" data-piece="rey_negro">
+          <div class="chess-piece-label">
+            <div class="chess-piece-badge">
+              <img src="{% static 'img/chess/rey_negro.svg' %}" alt="Rey Negro" class="chess-piece-icon">
+            </div>
+            <span>Rey Negro</span>
+          </div>
+          <div class="chess-piece-stepper">
+            <button type="button" class="chess-step-btn" aria-label="Disminuir límite Rey Negro" onclick="chessStep('rey_negro', -1)">-</button>
+            <input type="number" id="limit-rey_negro" class="chess-input-val" aria-label="Límite deseado Rey Negro" value="0" min="0">
+            <button type="button" class="chess-step-btn" aria-label="Aumentar límite Rey Negro" onclick="chessStep('rey_negro', 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chess-actions-bar">
+        <button type="button" class="btn-chess-primary" onclick="chessGuardarLimites()">
+          <i class="ph-bold ph-check"></i> Aplicar Límites al Daemon
+        </button>
+        <button type="button" class="btn-chess-danger" onclick="chessReiniciarConteo()">
+          <i class="ph-bold ph-arrow-counter-clockwise"></i> Reiniciar Lote
+        </button>
+      </div>
+    </div>
+
+    <div class="chess-card">
+      <div class="chess-card-header">
+        <h3><i class="ph-bold ph-activity"></i> Telemetría de Conteo en Vivo</h3>
+        <span class="chess-pill live" style="font-size: 10px;">TIEMPO REAL</span>
+      </div>
+
+      <div class="telemetry-summary-row" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="telemetry-metric-box">
+          <div class="telemetry-metric-val" id="chess-val-total">0</div>
+          <div class="telemetry-metric-lbl">Total Pasaron (Izq → Der)</div>
+        </div>
+        <div class="telemetry-metric-box">
+          <div class="telemetry-metric-val" id="chess-val-esperadas" style="color: #38bdf8;">--</div>
+          <div class="telemetry-metric-lbl">Límite Lote</div>
+        </div>
+        <div class="telemetry-metric-box">
+          <div class="telemetry-metric-val" id="chess-val-alertas" style="color: #34d399;">0</div>
+          <div class="telemetry-metric-lbl">Infracciones</div>
+        </div>
+        <div class="telemetry-metric-box">
+          <div class="telemetry-metric-val" id="chess-val-linea" style="color: #a78bfa; font-size: 13px;">--</div>
+          <div class="telemetry-metric-lbl">Línea Cruce</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">AVANCE DE PIEZAS:</div>
+        <div class="chess-live-monitor" id="chess-monitor-list">
+          <div style="font-size: 11px; color: var(--text-muted); padding: 12px 0;">Cargando telemetría de piezas...</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">HISTORIAL DE EVENTOS / DETECCIONES:</div>
+        <div class="chess-log-box" id="chess-log-box">
+          <div class="chess-log-entry">
+            <span class="chess-log-time">--:--:--</span>
+            <span class="chess-log-tag tag-init">INIT</span>
+            <span class="chess-log-text">Esperando cruce de piezas por la línea virtual...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const baseEdge = window.API_BASE_URL || `http://${window.location.hostname}:8003`;
+  const PAWN_API = `${baseEdge}/api/v1/stream/pawn-counter`;
+  let pollingTimer = null;
+  let limitsInitialized = false;
+
+  const PIECES_ALL = [
+    'peon_blanco', 'torre_blanca', 'caballo_blanco', 'alfil_blanco', 'reina_blanca', 'rey_blanco',
+    'peon_negro', 'torre_negra', 'caballo_negro', 'alfil_negro', 'reina_negra', 'rey_negro'
+  ];
+
+  const PIECE_NAMES = {
+    'peon_blanco': 'Peón Blanco',
+    'torre_blanca': 'Torre Blanca',
+    'caballo_blanco': 'Caballo Blanco',
+    'alfil_blanco': 'Alfil Blanco',
+    'reina_blanca': 'Reina Blanca',
+    'rey_blanco': 'Rey Blanco',
+    'peon_negro': 'Peón Negro',
+    'torre_negra': 'Torre Negra',
+    'caballo_negro': 'Caballo Negro',
+    'alfil_negro': 'Alfil Negro',
+    'reina_negra': 'Reina Negra',
+    'rey_negro': 'Rey Negro'
+  };
+
+  let currentLineConfig = {
+    orientation: 'horizontal',
+    position: 0.50,
+    sound_enabled: true
+  };
+  let lastSeenCrossingTimestamp = 0;
+  let sliderDebounceTimer = null;
+
+  let audioCtx = null;
+  function getAudioContext() {
+    try {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    } catch(e) {}
+    return audioCtx;
+  }
+
+  window.chessPlayBeep = function(tipo = 'cruce') {
+    try {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (tipo === 'rechazado' || tipo === 'error') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(480, now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.24);
+        gain.gain.setValueAtTime(0.35, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } else {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now);
+        gain.gain.setValueAtTime(0.30, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+        osc.start(now);
+        osc.stop(now + 0.10);
+      }
+    } catch(e) {}
+  };
+
+  window.chessTestBeep = async function() {
+    window.chessPlayBeep('cruce');
+    try {
+      const res = await fetch(`${PAWN_API}/test-beep?tipo=cruce`, { method: 'POST' });
+      if (res.ok) {
+        chessAgregarLog('Pitido de prueba emitido en hardware y navegador', 'AUDIO');
+        if (typeof mostrarNotificacion === 'function') {
+          mostrarNotificacion('Pitido emitido exitosamente', 'info');
+        }
+      }
+    } catch(e) {
+      chessAgregarLog('Pitido reproducido en navegador (modo local)', 'AUDIO');
+    }
+  };
+
+  window.chessCambiarOrientacionLinea = async function(nuevaOri) {
+    if (nuevaOri !== 'horizontal' && nuevaOri !== 'vertical') return;
+    currentLineConfig.orientation = nuevaOri;
+    actualizarBotonesOrientacion(nuevaOri);
+
+    try {
+      const res = await fetch(`${PAWN_API}/line-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentLineConfig)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        currentLineConfig = data;
+        const oriNombre = nuevaOri === 'vertical' ? 'VERTICAL' : 'HORIZONTAL';
+        chessAgregarLog(`Línea virtual: Orientación cambiada a ${oriNombre}`, 'CONFIG');
+        if (typeof mostrarNotificacion === 'function') {
+          mostrarNotificacion(`Línea virtual configurada en modo ${oriNombre}`, 'success');
+        }
+      }
+    } catch(e) {
+      if (typeof mostrarNotificacion === 'function') {
+        mostrarNotificacion('Error comunicando con Daemon para cambiar orientación', 'error');
+      }
+    }
+  };
+
+  window.chessActualizarSliderVisual = function(val) {
+    const lbl = document.getElementById('chess-line-pos-label');
+    if (lbl) lbl.textContent = `${val}%`;
+  };
+
+  window.chessCambiarPosicionLinea = function(val) {
+    const num = parseInt(val, 10);
+    const relPos = Math.max(0.10, Math.min(0.90, num / 100));
+    currentLineConfig.position = relPos;
+
+    clearTimeout(sliderDebounceTimer);
+    sliderDebounceTimer = setTimeout(async () => {
+      try {
+        await fetch(`${PAWN_API}/line-config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentLineConfig)
+        });
+        chessAgregarLog(`Línea virtual: Posición calibrada al ${num}%`, 'CONFIG');
+      } catch(e) {}
+    }, 250);
+  };
+
+  window.chessToggleSonido = async function(enabled) {
+    currentLineConfig.sound_enabled = !!enabled;
+    const icon = document.getElementById('chess-sound-icon');
+    if (icon) {
+      icon.className = enabled ? 'ph-bold ph-speaker-high' : 'ph-bold ph-speaker-slash';
+      icon.style.color = enabled ? 'var(--accent-cyan)' : 'var(--text-muted)';
+    }
+
+    try {
+      await fetch(`${PAWN_API}/line-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(currentLineConfig)
+      });
+      chessAgregarLog(`Alarma sonora de cruce: ${enabled ? 'ACTIVADA' : 'DESACTIVADA'}`, 'CONFIG');
+    } catch(e) {}
+  };
+
+  function actualizarBotonesOrientacion(ori) {
+    const btnH = document.getElementById('btn-line-horiz');
+    const btnV = document.getElementById('btn-line-vert');
+    const badge = document.getElementById('chess-line-badge');
+    const teleVal = document.getElementById('chess-val-linea');
+
+    if (ori === 'vertical') {
+      if (btnH) btnH.classList.remove('active');
+      if (btnV) btnV.classList.add('active');
+      if (badge) {
+        badge.textContent = 'VERTICAL (IZQ → DER)';
+        badge.style.color = '#38bdf8';
+      }
+      if (teleVal) {
+        teleVal.textContent = 'IZQ → DER';
+        teleVal.style.color = '#38bdf8';
+      }
+    } else {
+      if (btnV) btnV.classList.remove('active');
+      if (btnH) btnH.classList.add('active');
+      if (badge) {
+        badge.textContent = 'HORIZONTAL';
+        badge.style.color = '#34d399';
+      }
+      if (teleVal) {
+        teleVal.textContent = 'HORIZONTAL';
+        teleVal.style.color = '#34d399';
+      }
+    }
+  }
+
+  window.chessStep = function(pieza, delta) {
+    const el = document.getElementById(`limit-${pieza}`);
+    if (!el) return;
+    let val = parseInt(el.value || '0', 10) + delta;
+    if (val < 0) val = 0;
+    el.value = val;
+  };
+
+  window.chessAplicarPreset = function(tipo) {
+    PIECES_ALL.forEach(p => {
+      const el = document.getElementById(`limit-${p}`);
+      if (el) el.value = 0;
+    });
+
+    if (tipo === 'peones_5') {
+      const el = document.getElementById('limit-peon_blanco');
+      if (el) el.value = 5;
+    } else if (tipo === 'peones_8') {
+      const pb = document.getElementById('limit-peon_blanco');
+      const pn = document.getElementById('limit-peon_negro');
+      if (pb) pb.value = 8;
+      if (pn) pn.value = 8;
+    } else if (tipo === 'partida_16') {
+      PIECES_ALL.forEach(p => {
+        const el = document.getElementById(`limit-${p}`);
+        if (el) {
+          if (p.includes('peon')) el.value = 8;
+          else if (p.includes('torre') || p.includes('caballo') || p.includes('alfil')) el.value = 2;
+          else el.value = 1;
+        }
+      });
+    }
+  };
+
+  window.chessGuardarLimites = async function() {
+    const limits = {};
+    const resumen = [];
+    PIECES_ALL.forEach(p => {
+      const el = document.getElementById(`limit-${p}`);
+      const val = parseInt(el ? el.value : '0', 10);
+      if (val > 0) {
+        limits[p] = val;
+        resumen.push(`${PIECE_NAMES[p] || p}: ${val}`);
+      }
+    });
+
+    try {
+      const res = await fetch(`${PAWN_API}/limits`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          limits: limits,
+          reject_unconfigured_pieces: true
+        })
+      });
+      if (res.ok) {
+        if (typeof mostrarNotificacion === 'function') {
+          mostrarNotificacion('Límites de lote aplicados correctamente', 'success');
+        }
+        const resumenStr = resumen.length > 0 ? resumen.join(', ') : 'Sin límites (conteo libre)';
+        chessAgregarLog(`Límites de lote aplicados: ${resumenStr}`, 'CONFIG');
+        chessActualizar();
+      }
+    } catch(e) {
+      if (typeof mostrarNotificacion === 'function') {
+        mostrarNotificacion('Error al comunicar con el Daemon en puerto 8003', 'error');
+      }
+    }
+  };
+
+  window.chessReiniciarConteo = async function() {
+    try {
+      const res = await fetch(`${PAWN_API}/reset`, { method: 'POST' });
+      if (res.ok) {
+        if (typeof mostrarNotificacion === 'function') {
+          mostrarNotificacion('Lote reiniciado a 0', 'info');
+        }
+        chessAgregarLog('Lote reiniciado a 0 por el operador', 'RESET');
+        chessActualizar();
+      }
+    } catch(e) {}
+  };
+
+  function chessAgregarLog(texto, categoria = 'INFO') {
+    const box = document.getElementById('chess-log-box');
+    if (!box) return;
+    const item = document.createElement('div');
+    item.className = 'chess-log-entry';
+    const hora = new Date().toLocaleTimeString();
+
+    let tagClass = 'tag-info';
+    const catUpper = (categoria || 'INFO').toUpperCase();
+    if (catUpper === 'CRUCE') tagClass = 'tag-cruce';
+    else if (catUpper === 'RECHAZO' || catUpper === 'ERROR') tagClass = 'tag-rechazo';
+    else if (catUpper === 'CONFIG') tagClass = 'tag-config';
+    else if (catUpper === 'AUDIO') tagClass = 'tag-audio';
+    else if (catUpper === 'RESET') tagClass = 'tag-reset';
+    else if (catUpper === 'INIT') tagClass = 'tag-init';
+
+    item.innerHTML = `
+      <span class="chess-log-time">${hora}</span>
+      <span class="chess-log-tag ${tagClass}">${catUpper}</span>
+      <span class="chess-log-text">${texto}</span>
+    `;
+    box.prepend(item);
+
+    while (box.children.length > 50) {
+      box.removeChild(box.lastChild);
+    }
+  }
+
+  async function chessActualizar() {
+    try {
+      const res = await fetch(`${PAWN_API}/status`);
+      if (!res.ok) throw new Error('Offline');
+      const data = await res.json();
+
+      const totalEl = document.getElementById('chess-val-total');
+      const esperadasEl = document.getElementById('chess-val-esperadas');
+      const alertasEl = document.getElementById('chess-val-alertas');
+      const banner = document.getElementById('chess-status-banner');
+      const bannerText = document.getElementById('chess-banner-text');
+
+      if (totalEl) totalEl.textContent = data.total_pieces_counted || 0;
+
+      const limits = data.batch_limits || {};
+      let totalTarget = 0;
+      let hasConfiguredLimits = false;
+      Object.values(limits).forEach(v => {
+        const n = parseInt(v, 10) || 0;
+        if (n > 0) {
+          totalTarget += n;
+          hasConfiguredLimits = true;
+        }
+      });
+      if (esperadasEl) {
+        esperadasEl.textContent = hasConfiguredLimits ? totalTarget : 'Libre';
+      }
+
+      if (!limitsInitialized && data.batch_limits) {
+        PIECES_ALL.forEach(p => {
+          const inp = document.getElementById(`limit-${p}`);
+          if (inp && document.activeElement !== inp) {
+            inp.value = limits[p] !== undefined ? limits[p] : 0;
+          }
+        });
+        limitsInitialized = true;
+      }
+
+      if (alertasEl) {
+        const errors = (data.errors && data.errors.length) ? data.errors.length : 0;
+        alertasEl.textContent = errors;
+        alertasEl.style.color = errors > 0 ? '#ef4444' : '#34d399';
+      }
+
+      if (data.line_config) {
+        const ori = (data.line_config.orientation || 'horizontal').toLowerCase();
+        actualizarBotonesOrientacion(ori);
+        currentLineConfig.orientation = ori;
+        currentLineConfig.sound_enabled = data.line_config.sound_enabled !== false;
+        if (data.line_config.position !== undefined) {
+          currentLineConfig.position = data.line_config.position;
+          const posPct = Math.round(data.line_config.position * 100);
+          const slider = document.getElementById('chess-line-pos-slider');
+          const lbl = document.getElementById('chess-line-pos-label');
+          if (slider && document.activeElement !== slider) slider.value = posPct;
+          if (lbl) lbl.textContent = `${posPct}%`;
+        }
+        const chk = document.getElementById('chess-sound-toggle');
+        if (chk) chk.checked = currentLineConfig.sound_enabled;
+        const icon = document.getElementById('chess-sound-icon');
+        if (icon) {
+          icon.className = currentLineConfig.sound_enabled ? 'ph-bold ph-speaker-high' : 'ph-bold ph-speaker-slash';
+          icon.style.color = currentLineConfig.sound_enabled ? 'var(--accent-cyan)' : 'var(--text-muted)';
+        }
+      }
+
+      if (data.last_crossing && data.last_crossing.timestamp) {
+        if (data.last_crossing.timestamp > lastSeenCrossingTimestamp) {
+          lastSeenCrossingTimestamp = data.last_crossing.timestamp;
+          const piezaKey = data.last_crossing.class_name || 'pieza';
+          const piezaNombre = (PIECE_NAMES[piezaKey] || piezaKey.replace('_', ' ')).toUpperCase();
+          const est = (data.last_crossing.estado || 'Aprobado').toUpperCase();
+          const esRechazo = est === 'RECHAZADO';
+          const lineaOri = (data.last_crossing.orientation || currentLineConfig.orientation).toUpperCase();
+
+          if (currentLineConfig.sound_enabled) {
+            window.chessPlayBeep(esRechazo ? 'rechazado' : 'cruce');
+          }
+
+          const trackId = data.last_crossing.track_id ? `#${data.last_crossing.track_id} ` : '';
+          const dirStr = data.last_crossing.direccion || (lineaOri === 'VERTICAL' ? 'IZQ → DER' : 'ARR → ABA');
+          const logMsg = `[${dirStr}] ${trackId}${piezaNombre} → ${est}`;
+          chessAgregarLog(logMsg, esRechazo ? 'RECHAZO' : 'CRUCE');
+        }
+      }
+
+      if (banner && bannerText) {
+        if (data.status === 'ERROR_LIMIT_EXCEEDED') {
+          banner.className = 'chess-banner alert';
+          bannerText.innerHTML = `<i class="ph-bold ph-warning-octagon"></i> <strong>LÍMITE EXCEDIDO:</strong> Se detectaron piezas no autorizadas o cuota superada. Banda detenida.`;
+        } else if (data.status === 'BATCH_COMPLETED') {
+          banner.className = 'chess-banner success';
+          bannerText.innerHTML = `<i class="ph-bold ph-check-circle"></i> <strong>LOTE COMPLETADO:</strong> Todas las piezas del lote han pasado exitosamente.`;
+        } else {
+          banner.className = 'chess-banner ready';
+          bannerText.innerHTML = `<i class="ph-bold ph-arrows-clockwise"></i> Monitoreo Activo: Inspeccionando paso de piezas en banda...`;
+        }
+      }
+
+      const monitorContainer = document.getElementById('chess-monitor-list');
+      if (monitorContainer) {
+        const counts = data.counts_per_piece || {};
+        const piezasMostradas = Array.from(new Set([...Object.keys(counts), ...Object.keys(limits)]));
+
+        if (piezasMostradas.length === 0) {
+          monitorContainer.innerHTML = '<div style="font-size: 11px; color: var(--text-muted); padding: 8px 0;">No hay piezas registradas aún en este lote.</div>';
+        } else {
+          let html = '';
+          piezasMostradas.forEach(pieza => {
+            const actual = counts[pieza] || 0;
+            const target = limits[pieza] || 0;
+            const targetStr = target > 0 ? target : 'Libre';
+            const pct = target > 0 ? Math.min(100, Math.round((actual / target) * 100)) : (actual > 0 ? 100 : 0);
+            const isExceeded = target > 0 && actual > target;
+            const isDone = target > 0 && actual === target;
+
+            let barClass = 'monitor-bar-fill';
+            if (isExceeded) barClass += ' exceeded';
+            else if (isDone) barClass += ' done';
+
+            const labelName = PIECE_NAMES[pieza] || pieza.replace('_', ' ');
+            const iconSrc = `/static/img/chess/${pieza}.svg`;
+
+            html += `
+              <div class="monitor-item">
+                <div class="monitor-item-header">
+                  <div class="monitor-item-label">
+                    <img src="${iconSrc}" alt="${labelName}" class="chess-piece-icon-sm">
+                    <span>${labelName}</span>
+                  </div>
+                  <span class="monitor-item-counter" style="color: ${isExceeded ? '#ef4444' : isDone ? '#34d399' : '#38bdf8'};">${actual} / ${targetStr}</span>
+                </div>
+                <div class="monitor-bar-wrapper">
+                  <div class="${barClass}" style="width: ${pct}%;"></div>
+                </div>
+              </div>
+            `;
+          });
+          monitorContainer.innerHTML = html;
+        }
+      }
+
+      const connBadge = document.getElementById('chess-conn-status');
+      if (connBadge) {
+        connBadge.className = 'chess-pill live';
+        connBadge.innerHTML = '<i class="ph-bold ph-broadcast"></i> Conectado';
+      }
+    } catch(err) {
+      const connBadge = document.getElementById('chess-conn-status');
+      if (connBadge) {
+        connBadge.className = 'chess-pill';
+        connBadge.style.background = 'rgba(239, 68, 68, 0.15)';
+        connBadge.style.color = '#f87171';
+        connBadge.innerHTML = '<i class="ph-bold ph-warning"></i> Daemon Offline';
+      }
+    }
+  }
+
+  window.iniciarPanelAjedrez = function() {
+    chessActualizar();
+    if (!pollingTimer) {
+      pollingTimer = setInterval(chessActualizar, 1500);
+    }
+  };
+})();
+</script>

@@ -1,3 +1,4 @@
+
 {% extends 'staff/base_staff.html' %}
 
 {% block content %}
@@ -7,20 +8,32 @@
     .alerta-exito { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
 </style>
 
-<!-- DESCUBRIMIENTO -->
 <div class="staff-card" style="border: 2px dashed #f59e0b; background-color: #fffbeb; margin-bottom: 25px;">
     <h3 style="color: #d97706; margin-bottom: 5px;">⚠️ Radar de Dispositivos (Modo Descubrimiento)</h3>
-    <p style="font-size: 12px; color: #92400e; margin-bottom: 15px;">Equipos físicos intentando conectarse sin autorización.</p>
+    <p style="font-size: 12px; color: #92400e; margin-bottom: 15px;">Equipos físicos o cámaras intentando conectarse sin credenciales autorizadas.</p>
     <table class="staff-table" style="background: white;">
         <thead>
-            <tr><th>Dirección MAC</th><th>IP Origen</th><th>Último Intento</th><th>Acción rápida</th></tr>
+            <tr><th>Dirección MAC</th><th>Dirección IP</th><th>Último Intento</th><th>Acción rápida</th></tr>
         </thead>
         <tbody>
             {% for intento in intentos_conexion %}
             <tr>
                 <td style="font-family: monospace; font-weight: bold; color: #b45309;">{{ intento.mac_address }}</td>
-                <td style="font-size: 12px;">{{ intento.ip_origen }}</td><td style="font-size: 12px;">{{ intento.ultimo_intento|date:"d M Y, H:i" }}</td>
-                <td><button type="button" onclick="prellenarMAC('{{ intento.mac_address }}')" class="btn-primary" style="background: #f59e0b; padding: 4px 10px; font-size: 11px; border: none;">Autorizar y Registrar</button></td>
+                <td>
+                    {% if intento.ip_origen %}
+                    <span style="font-family: monospace; font-weight: 600; color: #047857; background: #ecfdf5; padding: 3px 8px; border-radius: 4px; border: 1px solid #a7f3d0; font-size: 12px;">
+                        🌐 {{ intento.ip_origen }}
+                    </span>
+                    {% else %}
+                    <span style="color: #9ca3af; font-size: 12px; font-style: italic;">No detectada</span>
+                    {% endif %}
+                </td>
+                <td style="font-size: 12px; color: #4b5563;">{{ intento.ultimo_intento|date:"d M Y, H:i" }}</td>
+                <td>
+                    <button type="button" onclick="prellenarDispositivo('{{ intento.mac_address }}', '{{ intento.ip_origen|default:'' }}')" class="btn-primary" style="background: #f59e0b; padding: 5px 12px; font-size: 11px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; border-radius: 4px;">
+                        ⚡ Autorizar y Registrar
+                    </button>
+                </td>
             </tr>
             {% empty %}
             <tr><td colspan="4" style="text-align: center; padding: 20px; color: #92400e; font-size: 12px;">Ningún dispositivo nuevo detectado.</td></tr>
@@ -29,7 +42,6 @@
     </table>
 </div>
 
-<!-- REGISTRO -->
 <div class="staff-card">
     <h3>Registrar Nuevo Dispositivo Edge</h3>
     {% if messages %}
@@ -42,24 +54,27 @@
     
     <form method="POST" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         {% csrf_token %}
-        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Nombre</label><input type="text" name="nombre" class="form-control" required style="width: 150px;"></div>
-        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ID Técnico</label><input type="text" name="device_id" class="form-control" required style="width: 150px;"></div>
-        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">MAC Address</label><input type="text" name="mac_address" class="form-control" required style="width: 150px;"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Nombre</label><input type="text" name="nombre" class="form-control" required style="width: 140px;" placeholder="Ej. Cámara Línea 1"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">ID Técnico</label><input type="text" name="device_id" class="form-control" required style="width: 130px;" placeholder="Ej. cam-01"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">MAC Address</label><input type="text" name="mac_address" class="form-control" required style="width: 140px;" placeholder="AA:BB:CC:DD:EE:FF"></div>
+        <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Dirección IP</label><input type="text" name="ip_local" class="form-control" style="width: 140px;" placeholder="Ej: 192.168.0.7:8001"></div>
         <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Cliente</label>
-            <select name="empresa_id" class="form-control" required style="width: 150px;">
+            <select name="empresa_id" class="form-control" required style="width: 140px;">
                 <option value="">Selecciona...</option>{% for empresa in empresas %}<option value="{{ empresa.id }}">{{ empresa.nombre }}</option>{% endfor %}
             </select>
         </div>
         <div><label style="display: block; font-size: 12px; font-weight: bold; margin-bottom: 5px;">Modelo IA</label>
-            <select name="modelo_id" class="form-control" style="width: 150px;">
-                <option value="">Ninguno</option>{% for modelo in modelos %}<option value="{{ modelo.id }}">{{ modelo.version }}</option>{% endfor %}
+            <select name="modelo_id" class="form-control" style="width: 140px;">
+                <option value="">Ninguno</option>
+                {% for modelo in modelos %}
+                <option value="{{ modelo.id }}">{{ modelo.nombre }}</option>
+                {% endfor %}
             </select>
         </div>
         <button type="submit" class="btn-primary" style="height: 38px;">Generar Credenciales</button>
     </form>
 </div>
 
-<!-- INVENTARIO CON BOTONES DE EDICIÓN -->
 <div class="staff-card">
     <h3>Inventario de Dispositivos Edge</h3>
     <table class="staff-table">
@@ -79,7 +94,9 @@
                 <td>{{ dispositivo.empresa.nombre }}</td>
                 <td>
                     {% if dispositivo.modelo_asignado %}
-                        <span style="background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;"> {{ dispositivo.modelo_asignado.version }}</span>
+                        <span style="background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">
+                            {{ dispositivo.modelo_asignado.nombre }} ({{ dispositivo.modelo_asignado.version_activa.version|default:"Sin versión" }})
+                        </span>
                     {% else %}
                         <span style="background: #f3f4f6; color: #6b7280; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Ninguno</span>
                     {% endif %}
@@ -104,9 +121,35 @@
 </div>
 
 <script>
-function prellenarMAC(mac_address) {
+function prellenarDispositivo(mac_address, ip_origen) {
     const inputMac = document.querySelector('input[name="mac_address"]');
-    if (inputMac) { inputMac.value = mac_address; inputMac.style.backgroundColor = "#ecfdf5"; document.querySelector('input[name="nombre"]').focus(); }
+    const inputIp = document.querySelector('input[name="ip_local"]');
+    const inputDevice = document.querySelector('input[name="device_id"]');
+    const inputNombre = document.querySelector('input[name="nombre"]');
+
+    if (inputMac) { 
+        inputMac.value = mac_address; 
+        inputMac.style.backgroundColor = "#ecfdf5";
+        inputMac.style.borderColor = "#10b981";
+    }
+    if (inputIp) { 
+        inputIp.value = ip_origen || ""; 
+        inputIp.style.backgroundColor = "#ecfdf5";
+        inputIp.style.borderColor = "#10b981";
+    }
+    if (inputDevice && !inputDevice.value && mac_address) {
+        const cleanMac = mac_address.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(-6);
+        inputDevice.value = "cam-" + cleanMac;
+    }
+    if (inputNombre) {
+        if (!inputNombre.value && mac_address) {
+            inputNombre.value = "Cámara " + mac_address.slice(-5);
+        }
+        inputNombre.focus();
+    }
+}
+function prellenarMAC(mac_address) {
+    prellenarDispositivo(mac_address, '');
 }
 </script>
 {% endblock %}

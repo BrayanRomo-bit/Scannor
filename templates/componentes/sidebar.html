@@ -1,0 +1,54 @@
+{% load static %}
+<aside class="sidebar">
+    <div class="sidebar-header">
+        <div class="sidebar-logo">
+            <img src="{% static 'img/logo_cyan_128.png' %}" alt="Logo" class="brand-logo-img logo-dark-theme">
+            <img src="{% static 'img/logo_navy_128.png' %}" alt="Logo" class="brand-logo-img logo-light-theme">
+        </div>
+        <div class="sidebar-brand">
+            <h1>{% if user.empresa %}{{ user.empresa.nombre }}{% else %}Scannor QA{% endif %}</h1>
+            <p>Control de Calidad y Visión Edge</p>
+        </div>
+    </div>
+    <nav class="sidebar-nav" role="tablist" aria-label="Paneles de Navegación">
+        <button class="nav-item active" id="tab-analisis" role="tab" aria-selected="true" aria-controls="panel-analisis" onclick="cambiarPanel('analisis')" type="button">
+            <i class="ph ph-magnifying-glass"></i> <span class="label">Análisis</span>
+        </button>
+        {% if es_modelo_ajedrez %}
+        <button class="nav-item" id="tab-ajedrez" role="tab" aria-selected="false" aria-controls="panel-ajedrez" onclick="cambiarPanel('ajedrez')" type="button">
+            <i class="ph ph-checkerboard"></i> <span class="label">Control de Ajedrez</span>
+            <span class="nav-badge badge-cyan">LOTE</span>
+        </button>
+        {% endif %}
+        <button class="nav-item" id="tab-personalizacion" role="tab" aria-selected="false" aria-controls="panel-personalizacion" onclick="cambiarPanel('personalizacion')" type="button">
+            <i class="ph ph-sliders-horizontal"></i> <span class="label">Ajustes</span>
+        </button>
+        <button class="nav-item" id="tab-resultados" role="tab" aria-selected="false" aria-controls="panel-resultados" onclick="cambiarPanel('resultados')" type="button">
+            <i class="ph ph-chart-bar"></i> <span class="label">Resultados</span>
+            <span class="nav-badge" id="badge-resultados">0</span>
+        </button>
+        {% if user.rol == 'admin_empresa' %}
+        <a class="nav-item" id="tab-gestion" href="/planta/" role="link">
+            <i class="ph ph-buildings"></i> <span class="label">Gestión de Planta</span>
+        </a>
+        {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-theme-panel" role="group" aria-label="Preferencia de Tema Visual">
+            <div class="sidebar-theme-header">
+                <span class="sidebar-theme-label"><i class="ph-bold ph-palette"></i> Tema Visual</span>
+            </div>
+            <div class="sidebar-theme-toggle">
+                <button type="button" id="sidebar-theme-dark" class="sidebar-theme-pill active" onclick="setAppTheme('dark')" aria-label="Activar Modo Oscuro" title="Modo Oscuro (Predeterminado para cabina)">
+                    <i class="ph-bold ph-moon"></i>
+                    <span>Oscuro</span>
+                </button>
+                <button type="button" id="sidebar-theme-light" class="sidebar-theme-pill" onclick="setAppTheme('light')" aria-label="Activar Modo Claro" title="Modo Claro (Titanium Clean)">
+                    <i class="ph-bold ph-sun"></i>
+                    <span>Claro</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</aside>

@@ -1,35 +1,186 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Iniciar Sesión | ScannorQA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso al Sistema · Scannor QA</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon.png' %}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/favicon-64.png' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v={% now 'U' %}">
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('scannor_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
     <style>
-        body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f3f4f6; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .tarjeta { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
-        input { width: 90%; padding: 12px; margin-bottom: 15px; border: 1px solid #d1d5db; border-radius: 6px; font-family: inherit; }
-        button { width: 100%; padding: 12px; background-color: #4338ca; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
-        button:hover { background-color: #3730a3; }
-        .error-msg { color: #dc2626; font-size: 14px; margin-bottom: 15px; font-weight: 600; }
-        .enlace-registro { display: block; margin-top: 20px; color: #4b5563; font-size: 14px; text-decoration: none; }
-        .enlace-registro:hover { color: #4338ca; text-decoration: underline; }
+        .login-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-app);
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 36px 32px;
+            box-shadow: var(--shadow-sm);
+            box-sizing: border-box;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .login-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: rgba(56, 189, 248, 0.12);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 8px;
+            box-sizing: border-box;
+            box-shadow: 0 4px 16px rgba(56, 189, 248, 0.15);
+        }
+        .login-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .login-title {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.01em;
+        }
+        .login-subtitle {
+            margin: 6px 0 0 0;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .login-field {
+            margin-bottom: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .login-field label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        .login-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: var(--bg-app);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 14px;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .login-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent-blue);
+            color: #ffffff;
+            border: 1px solid var(--accent-blue);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            transition: all 0.15s ease;
+            font-family: inherit;
+        }
+        .login-btn:hover {
+            background: #1d4ed8;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
+        }
+        .login-error {
+            background: var(--accent-red-subtle);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: var(--accent-red);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
     </style>
 </head>
-<body>
-    <div class="tarjeta">
-        <h2 style="margin-top:0; color:#111827;">Acceso al Motor Edge</h2>
-        <p style="color:#6b7280; font-size:14px; margin-bottom:20px;">Ingresa tus credenciales</p>
-        
-{% if error %}
-    <div class="error-msg"> {{ error }}</div>
-{% endif %}
-        <form method="POST">
+<body class="login-page">
+    <main class="login-card" role="main">
+        <div class="login-header">
+            <div class="login-logo" aria-hidden="true">
+                <img src="{% static 'img/logo_cyan_128.png' %}" alt="Scannor QA Logo">
+            </div>
+            <h1 class="login-title">Scannor QA</h1>
+            <p class="login-subtitle">Control de Calidad y Visión Artificial Edge</p>
+        </div>
+
+        {% if error %}
+        <div class="login-error" role="alert">
+            <i class="ph-bold ph-warning-circle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form method="POST" novalidate>
             {% csrf_token %}
-            <input type="text" name="username" placeholder="Nombre de Usuario" required>
-            <input type="password" name="password" placeholder="Contraseña" required>
-            <button type="submit">Iniciar Sesión</button>
+            <div class="login-field">
+                <label for="username">Nombre de Usuario</label>
+                <input type="text" id="username" name="username" class="login-input" placeholder="Operador o Administrador" required autocomplete="username">
+            </div>
+
+            <div class="login-field">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" class="login-input" placeholder="••••••••" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="login-btn">
+                <i class="ph-bold ph-sign-in"></i> Iniciar Sesión
+            </button>
         </form>
 
-    </div>
+        <div class="login-footer">
+            <span>Terminal Edge · Scannor QA v2.4</span>
+        </div>
+    </main>
 </body>
 </html>

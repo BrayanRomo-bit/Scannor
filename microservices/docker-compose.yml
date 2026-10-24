@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  # ================================================================
+  # Microservicio A: Inspección de Defectos Superficiales y QR
+  # ================================================================
+  defect-inspection:
+    build:
+      context: ./defect_inspection
+      dockerfile: Dockerfile
+    container_name: scannor_defect_inspection
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "${PORT_DEFECT_INSPECTION:-8001}:${PORT_DEFECT_INSPECTION:-8001}"
+    environment:
+      - MODEL_PATH=${DEFECT_MODEL_PATH:-/app/models/best_abolladura.pt}
+      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.50}
+      - IOU_THRESHOLD=${IOU_THRESHOLD:-0.45}
+      - DEVICE=${DEVICE:-cpu}
+      - QR_REQUIRED=${QR_REQUIRED:-true}
+      - DEFECT_CLASSES=${DEFECT_CLASSES:-abolladura,grieta,poro,rayon,bloque_fisura,bloque_rotura}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT_DEFECT_INSPECTION:-8001}
+    volumes:
+      - ./shared/models:/app/models:ro
+    networks:
+      - vision_network
+
+  # ================================================================
+  # Microservicio B: Conteo e Inventario de Bloques con Tracking
+  # ================================================================
+  inventory-counting:
+    build:
+      context: ./inventory_counting
+      dockerfile: Dockerfile
+    container_name: scannor_inventory_counting
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "${PORT_INVENTORY_COUNTING:-8002}:${PORT_INVENTORY_COUNTING:-8002}"
+    environment:
+      - MODEL_PATH=${INVENTORY_MODEL_PATH:-/app/models/best_block.pt}
+      - CONF_THRESHOLD=${CONF_THRESHOLD:-0.50}
+      - IOU_THRESHOLD=${IOU_THRESHOLD:-0.45}
+      - TRACKER_CONFIG=${TRACKER_CONFIG:-bytetrack.yaml}
+      - DEVICE=${DEVICE:-cpu}
+      - LINE_POSITION_Y=${LINE_POSITION_Y:-0.50}
+      - APPROVED_CLASSES=${APPROVED_CLASSES:-bloque_ok}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT_INVENTORY_COUNTING:-8002}
+    volumes:
+      - ./shared/models:/app/models:ro
+    networks:
+      - vision_network
+
+  # ================================================================
+  # Microservicio C: Conteo y Tracking de Peones de Ajedrez
+  # ================================================================
+  pawn-counter:
+    build:
+      context: ./pawn_counter
+      dockerfile: Dockerfile
+    container_name: scannor_pawn_counter
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "${PORT_PAWN_COUNTER:-8003}:${PORT_PAWN_COUNTER:-8003}"
+    environment:
+      - MODEL_PATH=${PAWN_MODEL_PATH:-/app/weights/best_peones.pt}
+      - MODEL_TYPE=${MODEL_TYPE:-detection}
+      - CONFIDENCE_THRESHOLD=${CONFIDENCE_THRESHOLD:-0.50}
+      - IOU_THRESHOLD=${IOU_THRESHOLD:-0.45}
+      - TRACKER_CONFIG_PATH=${TRACKER_CONFIG_PATH:-bytetrack.yaml}
+      - DEVICE=${DEVICE:-cpu}
+      - LINE_START_X=${LINE_START_X:-0.10}
+      - LINE_START_Y=${LINE_START_Y:-0.50}
+      - LINE_END_X=${LINE_END_X:-0.90}
+      - LINE_END_Y=${LINE_END_Y:-0.50}
+      - TARGET_CLASSES=${TARGET_CLASSES:-peon,pawn,peon_blanco,peon_negro}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT_PAWN_COUNTER:-8003}
+    volumes:
+      - ./pawn_counter/weights:/app/weights:ro
+    networks:
+      - vision_network
+
+networks:
+  vision_network:
+    driver: bridge

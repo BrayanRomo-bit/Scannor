@@ -1,58 +1,218 @@
-<div class="card" style="margin-top: 20px;">
-  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-    <span class="card-title">⚙️ Configuración de Hardware</span>
-    <button id="btn-escanear" class="ctrl">Escanear Puertos</button>
-  </div>
 
-  <div class="card-body">
-    <!-- Indicador de Hardware Vinculado (Integrado al flujo) -->
-    <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0;">
-        <span style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px;">Hardware Vinculado a tu Planta</span>
-        
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        {% for disp in dispositivos %}
-            <div style="background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px;">
-                <span style="display: inline-block; width: 8px; height: 8px; background-color: #10B981; border-radius: 50%; box-shadow: 0 0 4px rgba(16, 185, 129, 0.4);"></span>
-                <span style="color: #0f172a; font-size: 13px; font-weight: 600;">{{ disp.nombre }}</span>
-                <span style="color: #4338ca; font-size: 11px; font-family: monospace; background: #e0e7ff; padding: 2px 6px; border-radius: 4px; border: 1px solid #c7d2fe;">{{ disp.device_id }}</span>
+<div class="cfg-container">
+
+    <div class="cfg-header">
+        <div class="cfg-header-left">
+            <div class="cfg-header-icon">
+                <i class="ph-bold ph-sliders-horizontal"></i>
             </div>
-        {% empty %}
-            <div style="background-color: #fef2f2; border: 1px solid #fecaca; padding: 6px 12px; border-radius: 6px; display: inline-block;">
-                <span style="color: #ef4444; font-size: 12px; font-weight: bold;">⚠️ Sin cámaras asignadas a esta empresa</span>
+            <div>
+                <h1 class="cfg-title">Ajustes de Hardware & Visión</h1>
+                <p class="cfg-subtitle">Calibra el túnel de inspección óptica, mapea puertos USB V4L2 y verifica la integridad del controlador Edge.</p>
             </div>
-        {% endfor %}
+        </div>
+
+        <div class="cfg-header-actions">
+            <button type="button" id="btn-escanear" class="cfg-btn cfg-btn-scan">
+                <i class="ph-bold ph-arrows-clockwise"></i> Analizar Hardware USB
+            </button>
+            <button type="button" id="btn-guardar-config" class="cfg-btn cfg-btn-save">
+                <i class="ph-bold ph-floppy-disk"></i> Guardar Mapeo
+            </button>
         </div>
     </div>
 
-    <!-- Selectores de cámara -->
-    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-      <div>
-        <label>Cam 01 (Frontal / QR):</label>
-        <select id="sel-frontal"><option value="none">Desactivada</option></select>
-        <div id="ind-frontal" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
-      </div>
-      <div>
-        <label>Cam 02 (Lateral Der):</label>
-        <select id="sel-lat-der"><option value="none">Desactivada</option></select>
-        <div id="ind-lat-der" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
-      </div>
-      <div>
-        <label>Cam 03 (Lateral Izq):</label>
-        <select id="sel-lat-izq"><option value="none">Desactivada</option></select>
-        <div id="ind-lat-izq" style="font-size: 12px; color: #888; margin-top: 4px;">—</div>
-      </div>
+    <div class="cfg-card">
+        <div class="cfg-card-header">
+            <div class="cfg-card-title-group">
+                <div class="cfg-card-icon-box" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                    <i class="ph-bold ph-cpu"></i>
+                </div>
+                <div>
+                    <h2 class="cfg-card-title">Estación de Captura Edge Vinculada</h2>
+                </div>
+            </div>
+            <span class="cfg-card-badge" style="background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25);">
+                <i class="ph-bold ph-check"></i> Controlador Activo
+            </span>
+        </div>
+
+        <div class="cfg-card-body">
+            <div class="device-grid">
+            {% for disp in dispositivos %}
+                <div class="device-item" style="flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
+                    <div class="device-item-left">
+                        <span class="device-beacon"></span>
+                        <div>
+                            <div class="device-info-name">{{ disp.nombre }}</div>
+                            <div class="device-info-sub">
+                                Modelo Activo: <strong style="color: #38bdf8;">{{ disp.modelo_asignado.nombre|default:"Sin modelo asignado" }}</strong>
+                                · IP Estación (Máquina 1): <strong style="color: #94a3b8; font-family: monospace;">{{ disp.ip_con_puerto|default:disp.ip_local|default:"127.0.0.1:8001" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="cfg-card-badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); font-size: 11px;">
+                            <i class="ph-bold ph-shield-check"></i> Asignado por Staff
+                        </span>
+                        <span class="device-chip-id" title="Identificador técnico del hardware">{{ disp.device_id }}</span>
+                    </div>
+                </div>
+            {% empty %}
+                <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.2); padding: 14px 18px; border-radius: 10px; display: flex; align-items: center; gap: 12px; width: 100%;">
+                    <i class="ph-bold ph-warning-octagon" style="color: #ef4444; font-size: 20px;"></i>
+                    <div>
+                        <div style="color: #f87171; font-size: 13px; font-weight: 600;">Sin dispositivos asignados a esta planta</div>
+                        <div style="color: #94a3b8; font-size: 11px; margin-top: 2px;">Contacta al Administrador Staff para vincular una estación Scannor Edge a tu empresa.</div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        </div>
     </div>
-    <button id="btn-guardar-config" class="ctrl" style="margin-top: 15px;">Guardar Mapeo</button>
-  </div>
+
+    <div class="cfg-card">
+        <div class="cfg-card-header">
+            <div class="cfg-card-title-group">
+                <div class="cfg-card-icon-box" style="background: rgba(59, 130, 246, 0.12); color: #60a5fa;">
+                    <i class="ph-bold ph-video-camera"></i>
+                </div>
+                <div>
+                    <h2 class="cfg-card-title">Mapeo de Perspectivas del Túnel de Inspección</h2>
+                </div>
+            </div>
+            <span class="cfg-card-badge" style="background: rgba(59, 130, 246, 0.1); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.25);">
+                <i class="ph-bold ph-crosshair"></i> 3 Ángulos Sincronizados
+            </span>
+        </div>
+
+        <div class="cfg-card-body">
+            <div class="camera-channels-grid">
+                
+                <div class="channel-card">
+                    <div class="channel-header">
+                        <span class="channel-role-pill">Canal 01 · Frontal</span>
+                        <i class="ph-bold ph-qr-code channel-icon" style="color: #60a5fa;"></i>
+                    </div>
+                    <div class="channel-body">
+                        <div class="channel-title-block">
+                            <h3 class="channel-name">Perspectiva Frontal & QR</h3>
+                            <p class="channel-desc">Captura la cara anterior para verificación estructural y decodificación del código de lote QR en tránsito.</p>
+                        </div>
+
+                        <div class="port-selector-group">
+                            <label class="port-label" for="sel-frontal">
+                                <i class="ph ph-plug"></i> Puerto de captura Linux V4L2
+                            </label>
+                            <select id="sel-frontal" class="port-select-custom">
+                                <option value="none">Desactivada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="channel-status-box">
+                        <span class="channel-status-label">Señal del sensor:</span>
+                        <div id="ind-frontal" class="signal-pill" style="color: var(--text-muted);">
+                            <i class="ph-fill ph-circle"></i> Motor apagado
+                        </div>
+                    </div>
+                </div>
+
+                <div class="channel-card">
+                    <div class="channel-header">
+                        <span class="channel-role-pill">Canal 02 · Lateral Der</span>
+                        <i class="ph-bold ph-arrows-out-line-vertical channel-icon" style="color: #60a5fa;"></i>
+                    </div>
+                    <div class="channel-body">
+                        <div class="channel-title-block">
+                            <h3 class="channel-name">Perspectiva Flanco Derecho</h3>
+                            <p class="channel-desc">Inspección de plano derecho para detección de fisuras longitudinales y fracturas en vértices/aristas.</p>
+                        </div>
+
+                        <div class="port-selector-group">
+                            <label class="port-label" for="sel-lat-der">
+                                <i class="ph ph-plug"></i> Puerto de captura Linux V4L2
+                            </label>
+                            <select id="sel-lat-der" class="port-select-custom">
+                                <option value="none">Desactivada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="channel-status-box">
+                        <span class="channel-status-label">Señal del sensor:</span>
+                        <div id="ind-lat-der" class="signal-pill" style="color: var(--text-muted);">
+                            <i class="ph-fill ph-circle"></i> Motor apagado
+                        </div>
+                    </div>
+                </div>
+
+                <div class="channel-card">
+                    <div class="channel-header">
+                        <span class="channel-role-pill">Canal 03 · Lateral Izq</span>
+                        <i class="ph-bold ph-arrows-in-line-vertical channel-icon" style="color: #60a5fa;"></i>
+                    </div>
+                    <div class="channel-body">
+                        <div class="channel-title-block">
+                            <h3 class="channel-name">Perspectiva Flanco Izquierdo</h3>
+                            <p class="channel-desc">Inspección de plano izquierdo para detección de desprendimiento de material, grietas y huecos.</p>
+                        </div>
+
+                        <div class="port-selector-group">
+                            <label class="port-label" for="sel-lat-izq">
+                                <i class="ph ph-plug"></i> Puerto de captura Linux V4L2
+                            </label>
+                            <select id="sel-lat-izq" class="port-select-custom">
+                                <option value="none">Desactivada</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="channel-status-box">
+                        <span class="channel-status-label">Señal del sensor:</span>
+                        <div id="ind-lat-izq" class="signal-pill" style="color: var(--text-muted);">
+                            <i class="ph-fill ph-circle"></i> Motor apagado
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="tunnel-diagram-card">
+                <div class="tunnel-info">
+                    <div class="tunnel-info-title">
+                        <i class="ph-bold ph-info" style="color: #38bdf8;"></i>
+                        <span>Recomendaciones de Topología USB Industrial</span>
+                    </div>
+                    <p class="tunnel-info-desc">
+                        Para garantizar transferencias fluidas sin caída de fotogramas, conecta cada cámara a controladores USB independientes o puertos USB 3.0 dedicados. Al presionar <strong>Guardar Mapeo</strong>, la topología se guarda de forma persistente en el daemon Edge.
+                    </p>
+                </div>
+                
+                <div class="tunnel-specs">
+                    <div class="tunnel-spec-item">
+                        <span class="tunnel-spec-label">Resolución Pipeline</span>
+                        <span class="tunnel-spec-val">640 × 480 px</span>
+                    </div>
+                    <div class="tunnel-spec-item">
+                        <span class="tunnel-spec-label">Subsampling</span>
+                        <span class="tunnel-spec-val">YUYV / MJPG</span>
+                    </div>
+                    <div class="tunnel-spec-item">
+                        <span class="tunnel-spec-label">Controlador OS</span>
+                        <span class="tunnel-spec-val">Linux v4l2loop</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
 </div>
 
 <script>
-  // Tu script JS se mantiene idéntico aquí
-  const CONF_API_BASE = 'http://127.0.0.1:8001';
-  const CONF_ADMIN_KEY = 'admin-secret-2026'; 
-  const CONF_HEADERS = { 'X-API-Key': CONF_ADMIN_KEY };
-
   document.addEventListener('DOMContentLoaded', () => {
+      
+      const CONF_API_BASE = window.API_BASE_URL;
+      const CONF_HEADERS = window.HEADERS_AUTH;
+
       const btnEscanear = document.getElementById('btn-escanear');
       const btnGuardar = document.getElementById('btn-guardar-config');
       const SELECTS_POR_ROL = { frontal: 'sel-frontal', lat_der: 'sel-lat-der', lat_izq: 'sel-lat-izq' };
@@ -61,6 +221,7 @@
       function aplicarConfigASelects(config) {
         Object.entries(SELECTS_POR_ROL).forEach(([rol, id]) => {
           const select = document.getElementById(id);
+          if (!select) return;
           const puerto = config ? config[rol] : null;
           if (puerto === null || puerto === undefined) { select.value = 'none'; return; }
           const valorStr = String(puerto);
@@ -76,70 +237,152 @@
       function actualizarIndicadores(conectada, motorActivo) {
         Object.entries(INDICADORES_POR_ROL).forEach(([rol, id]) => {
           const el = document.getElementById(id);
-          if (!motorActivo) { el.textContent = '⚪ Motor apagado'; el.style.color = '#888'; } 
-          else if (conectada && conectada[rol]) { el.textContent = '🟢 Conectada'; el.style.color = '#2e7d32'; } 
-          else { el.textContent = '🔴 Sin señal'; el.style.color = '#c62828'; }
+          if (!el) return;
+          if (!motorActivo) { 
+              el.innerHTML = '<span class="dot-beacon paused"></span> <span>Motor apagado</span>'; 
+              el.style.color = '#94a3b8'; 
+          } 
+          else if (conectada && conectada[rol]) { 
+              el.innerHTML = '<span class="dot-beacon active"></span> <span>Señal activa</span>'; 
+              el.style.color = '#34d399'; 
+          } 
+          else { 
+              el.innerHTML = '<span class="dot-beacon offline"></span> <span>Sin señal</span>'; 
+              el.style.color = '#f87171'; 
+          }
         });
+      }
+
+      async function comunicarConfigEdge(accion, metodo = 'GET', payload = null) {
+        if (CONF_API_BASE && CONF_HEADERS) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            const opt = { method: metodo, headers: CONF_HEADERS, signal: controller.signal };
+            if (payload && metodo === 'POST') {
+              opt.headers = Object.assign({}, CONF_HEADERS, { 'Content-Type': 'application/json' });
+              opt.body = JSON.stringify(payload);
+            }
+            const res = await fetch(`${CONF_API_BASE}/api/${accion}`, opt);
+            clearTimeout(timeoutId);
+            if (res.ok) return await res.json();
+          } catch (e) {
+            console.warn(`Llamada directa a ${CONF_API_BASE}/api/${accion} no disponible. Usando Relay Django...`);
+          }
+        }
+
+        const csrf = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+        const relayRes = await fetch('/api/dispositivo/control/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+          body: JSON.stringify({ action: accion, method: metodo, payload: payload })
+        });
+        if (!relayRes.ok) {
+          const errD = await relayRes.json().catch(() => ({}));
+          throw new Error(errD.error || `Error relay: ${relayRes.status}`);
+        }
+        return await relayRes.json();
       }
 
       async function refrescarEstado(aplicarSelects) {
         try {
-          const res = await fetch(`${CONF_API_BASE}/api/estado-camaras`, { headers: CONF_HEADERS });
-          if (!res.ok) return;
-          const data = await res.json();
-          if (aplicarSelects) aplicarConfigASelects(data.config_actual);
+          const data = await comunicarConfigEdge('estado-camaras', 'GET');
+          if (!data) return;
+          if (aplicarSelects && data.config_actual) aplicarConfigASelects(data.config_actual);
           actualizarIndicadores(data.conectada, data.motor_activo);
-        } catch (err) { console.error('Error:', err); }
+        } catch (err) {  }
       }
 
-      btnEscanear.addEventListener('click', () => {
-        btnEscanear.innerText = 'Escaneando hardware...';
-        btnEscanear.disabled = true;
+      if (btnEscanear) {
+        btnEscanear.addEventListener('click', () => {
+          btnEscanear.innerHTML = '<i class="ph-bold ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Escaneando USB...';
+          btnEscanear.disabled = true;
 
-        fetch(`${CONF_API_BASE}/api/escanear-hardware`, { headers: CONF_HEADERS })
-          .then(res => res.json())
-          .then(data => {
-            if (data.error) { mostrarNotificacion('⚠️ ' + data.error, 'error'); return; }
-            if (data.puertos_disponibles.length === 0) {
-              mostrarNotificacion('No se detectó ninguna cámara.', 'error');
-            } else {
-              mostrarNotificacion('Puertos detectados: ' + data.puertos_disponibles.join(', '), 'success');
-            }
+          comunicarConfigEdge('escanear-hardware', 'GET')
+            .then(data => {
+              if (data.error) { 
+                if(typeof mostrarNotificacion === "function") mostrarNotificacion('⚠️ ' + data.error, 'error'); 
+                return; 
+              }
+              if (!data.puertos_disponibles || data.puertos_disponibles.length === 0) {
+                if(typeof mostrarNotificacion === "function") mostrarNotificacion('No se detectó ninguna cámara USB en /dev/video*.', 'error');
+              } else {
+                if(typeof mostrarNotificacion === "function") mostrarNotificacion(`Puertos detectados en Máquina 1: ${data.puertos_disponibles.map(p => '/dev/video' + p).join(', ')}`, 'success');
+              }
+              Object.values(SELECTS_POR_ROL).forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                select.innerHTML = '<option value="none">Desactivada</option>';
+                (data.puertos_disponibles || []).forEach(puerto => {
+                  const option = document.createElement('option');
+                  option.value = puerto; option.text = `Puerto /dev/video${puerto}`; select.appendChild(option);
+                });
+              });
+              if (data.config_actual) aplicarConfigASelects(data.config_actual);
+            })
+            .catch((err) => { if(typeof mostrarNotificacion === "function") mostrarNotificacion(err.message || 'Error de conexión con la estación Edge', 'error'); })
+            .finally(() => { 
+                btnEscanear.innerHTML = '<i class="ph-bold ph-arrows-clockwise"></i> Analizar Hardware USB'; 
+                btnEscanear.disabled = false; 
+            });
+        });
+      }
+
+      if (btnGuardar) {
+        btnGuardar.addEventListener('click', () => {
+          const parsePort = (val) => val === 'none' ? null : parseInt(val);
+          const payload = {
+            frontal: parsePort(document.getElementById('sel-frontal')?.value || 'none'),
+            lat_der: parsePort(document.getElementById('sel-lat-der')?.value || 'none'),
+            lat_izq: parsePort(document.getElementById('sel-lat-izq')?.value || 'none')
+          };
+          btnGuardar.disabled = true;
+          btnGuardar.innerHTML = '<i class="ph-bold ph-spinner-gap" style="animation: spin 1s linear infinite;"></i> Guardando...';
+          
+          comunicarConfigEdge('guardar-configuracion', 'POST', payload)
+          .then(() => { 
+              if(typeof mostrarNotificacion === "function") mostrarNotificacion('Mapeo de cámaras guardado en Máquina 1', 'success'); 
+              refrescarEstado(true); 
+          })
+          .catch((err) => { if(typeof mostrarNotificacion === "function") mostrarNotificacion(err.message || 'Error guardando configuración en estación.', 'error'); })
+          .finally(() => { 
+              btnGuardar.disabled = false;
+              btnGuardar.innerHTML = '<i class="ph-bold ph-floppy-disk"></i> Guardar Mapeo';
+          });
+        });
+      }
+
+      async function inicializarHardware() {
+        try {
+          const dataScan = await comunicarConfigEdge('escanear-hardware', 'GET');
+          if (dataScan && dataScan.puertos_disponibles) {
             Object.values(SELECTS_POR_ROL).forEach(id => {
               const select = document.getElementById(id);
+              if (!select) return;
               select.innerHTML = '<option value="none">Desactivada</option>';
-              data.puertos_disponibles.forEach(puerto => {
+              dataScan.puertos_disponibles.forEach(puerto => {
                 const option = document.createElement('option');
-                option.value = puerto; option.text = `Puerto /dev/video${puerto}`; select.appendChild(option);
+                option.value = puerto;
+                option.text = `Puerto /dev/video${puerto}`;
+                select.appendChild(option);
               });
             });
-            aplicarConfigASelects(data.config_actual);
-          })
-          .catch(() => mostrarNotificacion(' Error de conexión', 'error'))
-          .finally(() => { btnEscanear.innerText = 'Escanear Puertos'; btnEscanear.disabled = false; });
-      });
+            if (dataScan.config_actual) aplicarConfigASelects(dataScan.config_actual);
+          }
+        } catch (e) {
+          console.warn('Auto-detección inicial de hardware no disponible:', e);
+        }
+        refrescarEstado(true);
+      }
 
-      btnGuardar.addEventListener('click', () => {
-        const parsePort = (val) => val === 'none' ? null : parseInt(val);
-        const payload = {
-          frontal: parsePort(document.getElementById('sel-frontal').value),
-          lat_der: parsePort(document.getElementById('sel-lat-der').value),
-          lat_izq: parsePort(document.getElementById('sel-lat-izq').value)
-        };
-        btnGuardar.disabled = true;
-        
-        fetch(`${CONF_API_BASE}/api/guardar-configuracion`, {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json', 'X-API-Key': CONF_ADMIN_KEY }, 
-          body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(data => { mostrarNotificacion('' + data.mensaje, 'info'); refrescarEstado(true); })
-        .catch(() => mostrarNotificacion(' Error guardando configuración.', 'error'))
-        .finally(() => btnGuardar.disabled = false );
-      });
-
-      refrescarEstado(true);
+      inicializarHardware();
       setInterval(() => refrescarEstado(false), 3000);
+      
+      if(!document.getElementById('spinner-style')) {
+          const style = document.createElement('style');
+          style.id = 'spinner-style';
+          style.innerHTML = `@keyframes spin { 100% { transform: rotate(360deg); } }`;
+          document.head.appendChild(style);
+      }
   });
 </script>

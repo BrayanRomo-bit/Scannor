@@ -2,7 +2,6 @@
 
 {% block content %}
 <style>
-    /* Estilos limpios para las alertas de Django */
     .alert-error { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
     .alert-success { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
 </style>
@@ -13,14 +12,13 @@
 
     {% if messages %}
         {% for message in messages %}
-            <!-- Usamos clases CSS limpias en lugar de código en línea -->
+            
             <div class="{% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
                 {{ message }}
             </div>
         {% endfor %}
     {% endif %}
 
-    <!-- FORMULARIO DE ONBOARDING -->
     <form method="POST" style="background: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 30px;">
         {% csrf_token %}
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
@@ -55,7 +53,6 @@
         <button type="submit" class="btn-primary" style="background-color: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">🚀 Registrar Empresa y Crear Admin</button>
     </form>
 
-    <!-- TABLA DE FÁBRICAS ACTIVAS -->
     <h3>Fábricas Activas en la Plataforma</h3>
     <table class="staff-table">
         <thead>

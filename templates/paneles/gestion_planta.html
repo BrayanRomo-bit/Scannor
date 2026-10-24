@@ -1,169 +1,1146 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gestión de Planta | ScannorQA</title>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Planta · {{ empresa.nombre }} | Scannor QA</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon.png' %}">
+    <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/favicon-64.png' %}">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('scannor_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+      })();
+    </script>
+
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f3f4f6; margin: 0; padding: 40px; }
-        .contenedor { max-width: 900px; margin: auto; }
-        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .btn-regresar { background: #4b5563; color: white; text-decoration: none; padding: 8px 15px; border-radius: 5px; font-size: 13px; font-weight: 600; }
-        .btn-regresar:hover { background: #374151; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: flex-end; }
-        .form-group { display: flex; flex-direction: column; }
-        .form-group label { font-size: 12px; font-weight: bold; margin-bottom: 5px; color: #374151; }
-        .form-control { padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 13px; }
-        .btn-primary { background-color: #10b981; color: white; border: none; padding: 9px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; }
-        .btn-primary:hover { background-color: #059669; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; font-size: 13px; }
-        th { background-color: #f9fafb; color: #4b5563; }
-        .badge-quota { background: #e0e7ff; color: #4338ca; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 12px; }
-        
-        /* ALERTAS LIMPIAS */
-        .alert-error { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; }
-        .alert-success { padding: 12px; margin-bottom: 15px; border-radius: 5px; font-size: 13px; background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }
+        :root, [data-theme="dark"] {
+            --bg-app: #090e17;
+            --bg-card: #101726;
+            --bg-card-sub: #0d1422;
+            --border-color: #1e293b;
+            --border-highlight: #2b3b5c;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-blue-hover: #2563eb;
+            --accent-green: #10b981;
+            --accent-green-hover: #059669;
+            --accent-red: #ef4444;
+            --accent-amber: #f59e0b;
+        }
+
+        [data-theme="light"] {
+            --bg-app: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-card-sub: #f8fafc;
+            --border-color: #cbd5e1;
+            --border-highlight: #94a3b8;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --text-dim: #64748b;
+            --accent-blue: #2563eb;
+            --accent-blue-hover: #1d4ed8;
+            --accent-green: #059669;
+            --accent-green-hover: #047857;
+            --accent-red: #dc2626;
+            --accent-amber: #d97706;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            min-height: 100vh;
+            padding: 32px 20px 60px 20px;
+            line-height: 1.5;
+        }
+
+        .planta-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .planta-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding-bottom: 8px;
+        }
+
+        .header-title-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .header-icon-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.28);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            padding: 7px;
+            box-sizing: border-box;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+            transition: all 0.2s ease;
+        }
+
+        [data-theme="light"] .header-icon-box {
+            background: rgba(15, 23, 42, 0.05);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .header-icon-box .brand-logo-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .header-icon-box .logo-dark-theme {
+            display: block;
+        }
+
+        .header-icon-box .logo-light-theme {
+            display: none;
+        }
+
+        [data-theme="light"] .header-icon-box .logo-dark-theme {
+            display: none !important;
+        }
+
+        [data-theme="light"] .header-icon-box .logo-light-theme {
+            display: block !important;
+        }
+
+        .header-text h1 {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-text p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .btn-back-dashboard {
+            background: #101726;
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s;
+        }
+
+        .btn-back-dashboard:hover {
+            background: #151e32;
+            color: #ffffff;
+            border-color: #334155;
+            transform: translateX(-2px);
+        }
+
+        .planta-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35);
+        }
+
+        .planta-card-header {
+            padding: 18px 22px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-card-sub);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .card-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon-pill {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .card-desc {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .planta-card-body {
+            padding: 22px;
+        }
+
+        .quota-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 18px 22px;
+            background: #0d1422;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .quota-info-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .quota-icon-wrap {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent-green);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .quota-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+
+        .quota-sub {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .quota-meter-wrap {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .quota-progress-track {
+            width: 140px;
+            height: 6px;
+            background: #1e293b;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .quota-progress-fill {
+            height: 100%;
+            background: var(--accent-green);
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        .quota-badge {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            font-variant-numeric: tabular-nums;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .edge-deploy-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1.9fr;
+            gap: 20px;
+        }
+
+        .deploy-col-card {
+            background: #090e17;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .deploy-step-tag {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            padding: 3px 8px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 8px;
+        }
+
+        .deploy-col-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f1f5f9;
+            margin-bottom: 4px;
+        }
+
+        .deploy-col-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 18px;
+            line-height: 1.4;
+        }
+
+        .btn-download-os {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .btn-dl-win {
+            background: rgba(59, 130, 246, 0.14);
+            color: #60a5fa;
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .btn-dl-win:hover {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-dl-linux {
+            background: rgba(148, 163, 184, 0.1);
+            color: #cbd5e1;
+            border-color: rgba(148, 163, 184, 0.25);
+        }
+
+        .btn-dl-linux:hover {
+            background: #334155;
+            color: #ffffff;
+            border-color: #475569;
+            transform: translateY(-1px);
+        }
+
+        .devices-cred-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .devices-cred-table th {
+            padding: 10px 14px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            background: #0c121e;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+
+        .devices-cred-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.7);
+            vertical-align: middle;
+        }
+
+        .devices-cred-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .device-name-strong {
+            font-weight: 700;
+            color: #f1f5f9;
+            font-size: 13px;
+        }
+
+        .device-id-mono {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            color: #60a5fa;
+            font-size: 11px;
+        }
+
+        .badge-model-status {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .badge-model-status.ok {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+        }
+
+        .badge-model-status.warn {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.28);
+        }
+
+        .btn-env-download {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 6px 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s;
+        }
+
+        .btn-env-download:hover {
+            background: #059669;
+            color: #ffffff;
+            border-color: #059669;
+            transform: translateY(-1px);
+        }
+
+        .form-grid-operador {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr auto;
+            gap: 14px;
+            align-items: flex-end;
+        }
+
+        .form-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-input-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .form-input-control {
+            width: 100%;
+            background: #090e17;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-input-control:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+        }
+
+        .btn-submit-operador {
+            background: var(--accent-green);
+            color: #ffffff;
+            border: none;
+            padding: 11px 22px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+            white-space: nowrap;
+        }
+
+        .btn-submit-operador:hover {
+            background: var(--accent-green-hover);
+            box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .msg-alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .msg-alert.error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .msg-alert.success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.25);
+        }
+
+        .operadores-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .operadores-table th {
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-dim);
+            background: #0c121e;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            text-align: left;
+        }
+
+        .operadores-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.7);
+            color: #cbd5e1;
+            vertical-align: middle;
+        }
+
+        .operadores-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .operadores-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.015);
+        }
+
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar-initials {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .username-text {
+            font-weight: 700;
+            color: #f1f5f9;
+            font-size: 13px;
+        }
+
+        .status-badge-op {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge-op.active {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.28);
+        }
+
+        .status-badge-op.inactive {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.28);
+        }
+
+        .status-beacon-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-beacon-dot.active {
+            background: #10b981;
+            box-shadow: 0 0 6px #10b981;
+        }
+
+        .status-beacon-dot.inactive {
+            background: #ef4444;
+        }
+
+        .theme-toggle-btn {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 9px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        .theme-toggle-btn:hover {
+            color: var(--text-main);
+            border-color: var(--border-highlight);
+            transform: translateY(-1px);
+        }
+
+        .theme-toggle-btn i {
+            font-size: 16px;
+            color: var(--accent-amber);
+        }
+
+        [data-theme="light"] body {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+
+        [data-theme="light"] .header-text h1 {
+            color: #0f172a !important;
+            font-weight: 800 !important;
+        }
+
+        [data-theme="light"] .header-text p {
+            color: #475569 !important;
+            font-weight: 500 !important;
+        }
+
+        [data-theme="light"] .planta-card {
+            background-color: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05) !important;
+        }
+
+        [data-theme="light"] .planta-card-header {
+            background-color: #f8fafc !important;
+            border-bottom-color: #e2e8f0 !important;
+        }
+
+        [data-theme="light"] .card-title {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .card-desc {
+            color: #475569 !important;
+            font-weight: 500 !important;
+        }
+
+        [data-theme="light"] .btn-back-dashboard {
+            background: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #cbd5e1 !important;
+            font-weight: 600 !important;
+        }
+
+        [data-theme="light"] .btn-back-dashboard:hover {
+            background: #f8fafc !important;
+            color: #0f172a !important;
+            border-color: #94a3b8 !important;
+        }
+
+        [data-theme="light"] .quota-banner {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        [data-theme="light"] .quota-title {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .quota-sub {
+            color: #475569 !important;
+            font-weight: 500 !important;
+        }
+
+        [data-theme="light"] .quota-progress-track {
+            background: #e2e8f0 !important;
+        }
+
+        [data-theme="light"] .deploy-col-card {
+            background: #f8fafc !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        [data-theme="light"] .deploy-col-title {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .deploy-col-desc {
+            color: #334155 !important;
+            font-weight: 500 !important;
+        }
+
+        [data-theme="light"] .btn-dl-linux {
+            background: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #cbd5e1 !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .btn-dl-linux:hover {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-color: #94a3b8 !important;
+        }
+
+        [data-theme="light"] .devices-cred-table th,
+        [data-theme="light"] .operadores-table th {
+            background: #f8fafc !important;
+            border-bottom-color: #cbd5e1 !important;
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .devices-cred-table td,
+        [data-theme="light"] .operadores-table td {
+            border-bottom-color: #e2e8f0 !important;
+            color: #0f172a !important;
+            font-weight: 500 !important;
+        }
+
+        [data-theme="light"] .operadores-table tr:hover {
+            background-color: #f8fafc !important;
+        }
+
+        [data-theme="light"] .device-name-strong,
+        [data-theme="light"] .username-text {
+            color: #0f172a !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .form-input-label {
+            color: #1e293b !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .form-input-control {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            font-weight: 600 !important;
+        }
+
+        [data-theme="light"] .form-input-control:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2) !important;
+        }
+
+        [data-theme="light"] .status-badge-op.active {
+            background: #d1fae5 !important;
+            color: #065f46 !important;
+            border-color: #6ee7b7 !important;
+            font-weight: 700 !important;
+        }
+
+        [data-theme="light"] .status-badge-op.inactive {
+            background: #fee2e2 !important;
+            color: #991b1b !important;
+            border-color: #fca5a5 !important;
+            font-weight: 700 !important;
+        }
+
+        @media (max-width: 1024px) {
+            .edge-deploy-grid { grid-template-columns: 1fr; }
+            .form-grid-operador { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (max-width: 640px) {
+            .form-grid-operador { grid-template-columns: 1fr; }
+            .planta-header { flex-direction: column; align-items: flex-start; }
+            .btn-back-dashboard { width: 100%; justify-content: center; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="contenedor">
-        <div class="header-flex">
-            <div>
-                <h2>🏢 Gestión de Planta: {{ empresa.nombre }}</h2>
-                <p style="color: #6b7280; font-size: 13px; margin-top: 4px;">Administra las licencias y operadores asignados a tu línea de producción.</p>
+    <div class="planta-wrapper">
+
+        <div class="planta-header">
+            <div class="header-title-group">
+                <div class="header-icon-box" aria-hidden="true">
+                    <img src="{% static 'img/logo_cyan_128.png' %}" alt="Logo" class="brand-logo-img logo-dark-theme">
+                    <img src="{% static 'img/logo_navy_128.png' %}" alt="Logo" class="brand-logo-img logo-light-theme">
+                </div>
+                <div class="header-text">
+                    <h1>Gestión de Planta · {{ empresa.nombre }}</h1>
+                    <p>Administración de licencias, software Edge y operadores autorizados en la línea de producción.</p>
+                </div>
             </div>
-            <a href="{% url 'dashboard' %}" class="btn-regresar">Volver al Dashboard</a>
-        </div>
-
-        <!-- CENTRO DE DESCARGAS (NUEVO BLOQUE) -->
-        <div class="card" style="border-top: 4px solid #3b82f6;">
-            <h3 style="margin-top: 0; color: #1e3a8a;">⬇️ Centro de Descargas (Motor Edge)</h3>
-            <p style="font-size: 13px; color: #4b5563; margin-bottom: 20px;">Descarga el software oficial para las computadoras de tu fábrica y las credenciales (.env) seguras para cada cámara de tu línea.</p>
-            
-            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <!-- Paso 1: Instaladores -->
-                <div style="flex: 1; min-width: 280px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                    <h4 style="margin: 0 0 10px 0; color: #334155;">Paso 1: Instalar Motor de IA</h4>
-                    <p style="font-size: 12px; color: #64748b; margin-bottom: 15px;">Descarga e instala este programa en la computadora que está conectada físicamente a la cámara en la línea de producción.</p>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <a href="{% url 'descargar_instalador' 'windows' %}" class="btn-primary" style="background: #2563eb; text-decoration: none; text-align: center;">🪟 Descargar para Windows (.exe)</a>
-                        <a href="{% url 'descargar_instalador' 'linux' %}" class="btn-primary" style="background: #475569; text-decoration: none; text-align: center;">🐧 Descargar para Linux (.sh)</a>
-                    </div>
-                </div>
-
-                <!-- Paso 2: Credenciales de Cámaras -->
-                <div style="flex: 1; min-width: 280px; background: #f0fdf4; padding: 20px; border-radius: 8px; border: 1px solid #bbf7d0;">
-                    <h4 style="margin: 0 0 10px 0; color: #166534;">Paso 2: Credenciales de Conexión</h4>
-                    <p style="font-size: 12px; color: #15803d; margin-bottom: 15px;">Guarda el archivo <code>.env</code> de la cámara correspondiente en la misma carpeta donde instalaste el programa anterior.</p>
-                    
-                    <table style="width: 100%; font-size: 12px; background: white; border-radius: 5px; overflow: hidden; margin: 0;">
-                        {% for disp in dispositivos %}
-                        <tr>
-                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb;">
-                                <strong>{{ disp.nombre }}</strong><br>
-                                <span style="color: #6b7280; font-family: monospace;">{{ disp.device_id }}</span>
-                            </td>
-                            <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                                <a href="{% url 'descargar_env_dispositivo' disp.id %}" style="background: #10b981; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 11px;">⬇️ Descargar .env</a>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="2" style="padding: 15px; text-align: center; color: #6b7280;">Aún no tienes cámaras vinculadas. Contacta a Soporte.</td>
-                        </tr>
-                        {% endfor %}
-                    </table>
-                </div>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleAppTheme()" title="Alternar Modo Claro / Modo Oscuro">
+                    <i id="theme-toggle-icon" class="ph-bold ph-sun"></i>
+                    <span id="theme-toggle-label">Modo Claro</span>
+                </button>
+                <a href="{% url 'dashboard' %}" class="btn-back-dashboard">
+                    <i class="ph-bold ph-arrow-left"></i> Volver al Dashboard
+                </a>
             </div>
         </div>
 
-        <!-- TARJETA DE ESTADÍSTICAS DE LICENCIA -->
-        <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h4 style="margin: 0; color: #374151;">Estado de la Licencia (Asientos Activos)</h4>
-                <p style="font-size: 12px; color: #6b7280; margin: 4px 0 0 0;">Control de operadores permitidos por tu plan contratado.</p>
+        <div class="quota-banner">
+            <div class="quota-info-group">
+                <div class="quota-icon-wrap">
+                    <i class="ph-bold ph-identification-badge"></i>
+                </div>
+                <div>
+                    <div class="quota-title">Asientos de Operador en Planta</div>
+                    <div class="quota-sub">Capacidad de usuarios simultáneos asignada por tu suscripción</div>
+                </div>
             </div>
-            <div>
-                <span class="badge-quota">
-                    👥 Operadores Activos: {{ usuarios_activos }} / {{ limite }}
+
+            <div class="quota-meter-wrap">
+                <div class="quota-progress-track" title="Uso de Asientos">
+                    <div class="quota-progress-fill" style="width: {% if limite > 0 %}{% widthratio usuarios_activos limite 100 %}{% else %}0{% endif %}%;"></div>
+                </div>
+                <span class="quota-badge">
+                    <i class="ph-bold ph-users"></i>
+                    <span>Operadores Activos: <strong>{{ usuarios_activos }}</strong> / {{ limite }}</span>
                 </span>
             </div>
         </div>
 
-        <!-- TARJETA PARA CREAR NUEVO OPERADOR -->
-        <div class="card">
-            <h3 style="margin-top: 0; color: #111827;">➕ Registrar Nuevo Operador</h3>
-            
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="{% if message.tags == 'error' %}alert-error{% else %}alert-success{% endif %}">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-
-            <form method="POST" action="{% url 'crear_operador' %}">
-                {% csrf_token %}
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Nombre de Usuario</label>
-                        <input type="text" name="username" class="form-control" placeholder="Ej. operador_linea1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Correo Electrónico</label>
-                        <input type="email" name="email" class="form-control" placeholder="correo@fabrica.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Contraseña Asignada</label>
-                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+        <div class="planta-card">
+            <div class="planta-card-header">
+                <div class="card-header-left">
+                    <div class="card-icon-pill" style="background: rgba(59, 130, 246, 0.12); color: #60a5fa;">
+                        <i class="ph-bold ph-tray-arrow-down"></i>
                     </div>
                     <div>
-                        <button type="submit" class="btn-primary">Crear Cuenta</button>
+                        <h2 class="card-title">Despliegue Técnico del Motor Edge</h2>
+                        <p class="card-desc">Software oficial para terminales de inspección y credenciales criptográficas (.env)</p>
                     </div>
                 </div>
-            </form>
+            </div>
+
+            <div class="planta-card-body">
+                <div class="edge-deploy-grid">
+                    
+                    <div class="deploy-col-card">
+                        <div>
+                            <span class="deploy-step-tag">Paso 1 · Software Base</span>
+                            <h3 class="deploy-col-title">Descargar Motor Edge</h3>
+                            <p class="deploy-col-desc">Instala este servicio en la computadora conectada a las cámaras del túnel de inspección.</p>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <a href="{% url 'descargar_instalador' 'windows' %}" class="btn-download-os btn-dl-win">
+                                <i class="ph-bold ph-microsoft-windows-logo" style="font-size: 18px;"></i>
+                                <span>Descargar para Windows (.exe)</span>
+                            </a>
+                            <a href="{% url 'descargar_instalador' 'linux' %}" class="btn-download-os btn-dl-linux">
+                                <i class="ph-bold ph-linux-logo" style="font-size: 18px;"></i>
+                                <span>Descargar para Linux (.tar.gz)</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="deploy-col-card">
+                        <div>
+                            <span class="deploy-step-tag" style="color: #34d399; background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.25);">
+                                Paso 2 · Credenciales Seguras
+                            </span>
+                            <h3 class="deploy-col-title">Configuración de Estaciones (.env)</h3>
+                            <p class="deploy-col-desc">Descarga el archivo de entorno y colócalo junto al ejecutable. El motor se autenticará automáticamente con la nube.</p>
+                        </div>
+
+                        <div style="overflow-x: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                            <table class="devices-cred-table">
+                                <thead>
+                                    <tr>
+                                        <th>Estación / Device ID</th>
+                                        <th style="text-align: center;">Estado Modelo</th>
+                                        <th style="text-align: right;">Credencial</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for disp in dispositivos %}
+                                    <tr>
+                                        <td>
+                                            <div class="device-name-strong">{{ disp.nombre }}</div>
+                                            <div class="device-id-mono">{{ disp.device_id }}</div>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            {% if disp.modelo_operativo %}
+                                                <span class="badge-model-status ok">
+                                                    <i class="ph-bold ph-check-circle"></i> IA Operativa
+                                                </span>
+                                            {% else %}
+                                                <span class="badge-model-status warn">
+                                                    <i class="ph-bold ph-warning"></i> Sin Modelo
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <a href="{% url 'descargar_env_dispositivo' disp.id %}" class="btn-env-download" title="Descargar scannor.env">
+                                                <i class="ph-bold ph-download-simple"></i> .env
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="3" style="text-align: center; color: var(--text-dim); padding: 24px;">
+                                            No hay estaciones de captura asignadas a tu empresa. Contacta al Administrador del Sistema.
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
 
-        <!-- TABLA DE OPERADORES ACTUALES -->
-        <div class="card">
-            <h3 style="margin-top: 0; color: #111827;">📋 Operadores Autorizados en Planta</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Usuario</th>
-                        <th>Correo</th>
-                        <th>Fecha de Alta</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for op in operadores %}
-                    <tr>
-                        <td><strong>@{{ op.username }}</strong></td>
-                        <td>{{ op.email|default:"No registrado" }}</td>
-                        <td>{{ op.date_joined|date:"d M Y" }}</td>
-                        <td>
-                            {% if op.is_active %}
-                                <span style="color: #16a34a; font-weight: bold;">🟢 Activo</span>
-                            {% else %}
-                                <span style="color: #dc2626; font-weight: bold;">🔴 Inactivo</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" style="text-align: center; color: #6b7280; padding: 25px;">
-                            No hay operadores registrados todavía. Utiliza el formulario superior para agregar al primero.
-                        </td>
-                    </tr>
+        <div class="planta-card">
+            <div class="planta-card-header">
+                <div class="card-header-left">
+                    <div class="card-icon-pill" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                        <i class="ph-bold ph-user-plus"></i>
+                    </div>
+                    <div>
+                        <h2 class="card-title">Registrar Nuevo Operador</h2>
+                        <p class="card-desc">Crea cuentas de acceso para el personal técnico asignado a la línea de escaneo</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="planta-card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="msg-alert {% if message.tags == 'error' %}error{% else %}success{% endif %}">
+                            <i class="ph-bold {% if message.tags == 'error' %}ph-warning-circle{% else %}ph-check-circle{% endif %}" style="font-size: 16px;"></i>
+                            <span>{{ message }}</span>
+                        </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                {% endif %}
+
+                <form method="POST" action="{% url 'crear_operador' %}">
+                    {% csrf_token %}
+                    <div class="form-grid-operador">
+                        <div class="form-input-group">
+                            <label class="form-input-label" for="input-username">Nombre de Usuario</label>
+                            <input type="text" id="input-username" name="username" class="form-input-control" placeholder="ej. operador_linea_1" required autocomplete="username">
+                        </div>
+
+                        <div class="form-input-group">
+                            <label class="form-input-label" for="input-email">Correo Corporativo</label>
+                            <input type="email" id="input-email" name="email" class="form-input-control" placeholder="operador@planta.com" autocomplete="email">
+                        </div>
+
+                        <div class="form-input-group">
+                            <label class="form-input-label" for="input-password">Contraseña Asignada</label>
+                            <input type="password" id="input-password" name="password" class="form-input-control" placeholder="••••••••" required autocomplete="new-password">
+                        </div>
+
+                        <div>
+                            <button type="submit" class="btn-submit-operador">
+                                <i class="ph-bold ph-plus-circle"></i> Crear Cuenta
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
+
+        <div class="planta-card">
+            <div class="planta-card-header">
+                <div class="card-header-left">
+                    <div class="card-icon-pill" style="background: rgba(99, 102, 241, 0.12); color: #818cf8;">
+                        <i class="ph-bold ph-users-three"></i>
+                    </div>
+                    <div>
+                        <h2 class="card-title">Directorio de Operadores en Planta</h2>
+                        <p class="card-desc">Personal autorizado con permisos para operar la consola y validar piezas</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="operadores-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 32%;">Operador</th>
+                            <th style="width: 30%;">Correo Electrónico</th>
+                            <th style="width: 22%;">Fecha de Alta</th>
+                            <th style="width: 16%; text-align: right;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for op in operadores %}
+                        <tr>
+                            <td>
+                                <div class="user-chip">
+                                    <div class="user-avatar-initials">
+                                        {{ op.username|slice:":2"|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="username-text">@{{ op.username }}</div>
+                                        <div style="font-size: 11px; color: var(--text-dim);">Operador de Planta</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ op.email|default:"Sin correo asignado" }}</td>
+                            <td style="color: var(--text-dim); font-size: 11px;">
+                                <i class="ph ph-calendar"></i> {{ op.date_joined|date:"d M Y · H:i" }}
+                            </td>
+                            <td style="text-align: right;">
+                                {% if op.is_active %}
+                                    <span class="status-badge-op active">
+                                        <span class="status-beacon-dot active"></span> Activo
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge-op inactive">
+                                        <span class="status-beacon-dot inactive"></span> Inactivo
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-dim); padding: 40px 20px;">
+                                <i class="ph-bold ph-user-circle" style="font-size: 32px; opacity: 0.4; display: block; margin-bottom: 8px;"></i>
+                                <span style="font-weight: 600; display: block; margin-bottom: 4px;">No hay operadores registrados</span>
+                                <span style="font-size: 12px;">Utiliza el formulario superior para habilitar el primer usuario de tu planta.</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
+
+    <script>
+        function actualizarBotonTema(theme) {
+            const btn = document.getElementById('theme-toggle-btn');
+            const icon = document.getElementById('theme-toggle-icon');
+            const label = document.getElementById('theme-toggle-label');
+            if (!icon || !label) return;
+
+            if (theme === 'light') {
+                icon.className = 'ph-bold ph-moon';
+                icon.style.color = '#6366f1';
+                label.textContent = 'Modo Oscuro';
+            } else {
+                icon.className = 'ph-bold ph-sun';
+                icon.style.color = '#f59e0b';
+                label.textContent = 'Modo Claro';
+            }
+        }
+
+        function toggleAppTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('scannor_theme', newTheme);
+            actualizarBotonTema(newTheme);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            actualizarBotonTema(currentTheme);
+        });
+    </script>
 
 </body>
 </html>

@@ -5,223 +5,237 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Scannor QA - Hub Industrial</title>
-  
+  <link rel="icon" type="image/png" sizes="32x32" href="{% static 'img/favicon.png' %}"/>
+  <link rel="icon" type="image/png" sizes="64x64" href="{% static 'img/favicon-64.png' %}"/>
+  <link rel="apple-touch-icon" href="{% static 'img/logo_cyan_128.png' %}"/>
+
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <link rel="stylesheet" href="{% static 'css/estilos.css' %}">
+
+  <link rel="stylesheet" href="{% static 'css/estilos.css' %}?v={% now 'U' %}">
+
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('scannor_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    })();
+  </script>
 </head>
 <body>
 
-  {% include 'componentes/navbar.html' %}
-  {% include 'paneles/analisis.html' %}
-  {% include 'paneles/resultados.html' %}
-  
-  <div class="panel hidden" id="panel-personalizacion">
-      {% include 'paneles/personalizacion.html' %}
+  <div class="app-layout">
+      {% include 'componentes/sidebar.html' %}
+
+      <div class="main-wrapper">
+          {% include 'componentes/topbar.html' %}
+
+          <main class="content-area" id="main-content" role="main">
+              <div id="panel-analisis" class="panel" role="tabpanel" aria-labelledby="tab-analisis" tabindex="0">
+                  {% include 'paneles/analisis.html' %}
+              </div>
+
+              <div id="panel-resultados" class="panel hidden" role="tabpanel" aria-labelledby="tab-resultados" tabindex="0">
+                  {% include 'paneles/resultados.html' %}
+              </div>
+
+              <div id="panel-personalizacion" class="panel hidden" role="tabpanel" aria-labelledby="tab-personalizacion" tabindex="0">
+                  {% include 'paneles/personalizacion.html' %}
+              </div>
+
+              {% if es_modelo_ajedrez %}
+              <div id="panel-ajedrez" class="panel hidden" role="tabpanel" aria-labelledby="tab-ajedrez" tabindex="0">
+                  {% include 'paneles/ajedrez.html' %}
+              </div>
+              {% endif %}
+          </main>
+      </div>
   </div>
 
-  <div id="toast-container"></div>
-
-<script>
-    const API_BASE_URL = 'http://127.0.0.1:8001';
-    const WS_BASE_URL = 'ws://127.0.0.1:8001';
+  <div id="toast-container"></div><script>
+    {% if dispositivo_activo.ip_con_puerto %}
+        {% if "://" in dispositivo_activo.ip_con_puerto %}
+            window.API_BASE_URL = '{{ dispositivo_activo.ip_con_puerto }}';
+        {% else %}
+            window.API_BASE_URL = 'http://{{ dispositivo_activo.ip_con_puerto }}';
+        {% endif %}
+    {% elif dispositivo_activo.ip_local %}
+        {% if "://" in dispositivo_activo.ip_local %}
+            window.API_BASE_URL = '{{ dispositivo_activo.ip_local }}';
+        {% else %}
+            window.API_BASE_URL = 'http://{{ dispositivo_activo.ip_local }}';
+        {% endif %}
+    {% else %}
+        window.API_BASE_URL = `http://${window.location.hostname}:8001`;
+    {% endif %}
+    window.WS_BASE_URL = window.API_BASE_URL.replace(/^http/, 'ws');
+    window.DJANGO_RELAY_URL = '/api/dispositivo/control/';
     
-    // --- CREDENCIALES FRONTEND ---
-    const ADMIN_KEY = 'admin-secret-2026';
-    const STREAM_TOKEN = 'visor-token-123';
-    const HEADERS_AUTH = { 'X-API-Key': ADMIN_KEY };
+    window.ADMIN_KEY = '{{ dispositivo_activo.admin_key|default:"" }}';
+    window.STREAM_TOKEN = '{{ dispositivo_activo.stream_token|default:"" }}';
+    window.HEADERS_AUTH = { 'X-API-Key': window.ADMIN_KEY };
+
+    let _ultimoToastMsg = '';
+    let _ultimoToastTime = 0;
+
+    function cerrarToast(el) {
+        if (!el || el._removing) return;
+        el._removing = true;
+        el.classList.add('fade-out');
+        setTimeout(() => {
+            if (el.parentNode) el.remove();
+        }, 220);
+    }
 
     function mostrarNotificacion(mensaje, tipo = 'success') {
         const container = document.getElementById('toast-container');
         if (!container) return;
+
+        const now = Date.now();
+        if (mensaje === _ultimoToastMsg && (now - _ultimoToastTime) < 1500) {
+            return;
+        }
+        _ultimoToastMsg = mensaje;
+        _ultimoToastTime = now;
+
+        while (container.children.length >= 2) {
+            const primero = container.firstElementChild;
+            if (primero) primero.remove();
+        }
+
         const toast = document.createElement('div');
         toast.className = `toast ${tipo}`;
-        toast.innerHTML = mensaje; 
+        toast.innerHTML = `
+            <span class="toast-msg">${mensaje}</span>
+            <button type="button" class="toast-close" aria-label="Cerrar" onclick="event.stopPropagation(); cerrarToast(this.closest('.toast'))">&times;</button>
+        `;
+        toast.onclick = () => cerrarToast(toast);
+
         container.appendChild(toast);
-        setTimeout(() => {
-            toast.classList.add('fade-out');
-            toast.addEventListener('animationend', () => toast.remove());
-        }, 4000); 
+
+        setTimeout(() => cerrarToast(toast), 2500);
     }
 
-    function cambiarPanel(panelDestino) {
-        const paneles = ['analisis', 'resultados', 'personalizacion'];
+    window.actualizarControlesTema = function(tema) {
+        
+        const btnDark = document.getElementById('sidebar-theme-dark');
+        const btnLight = document.getElementById('sidebar-theme-light');
+        if (btnDark && btnLight) {
+            if (tema === 'light') {
+                btnDark.classList.remove('active');
+                btnLight.classList.add('active');
+            } else {
+                btnDark.classList.add('active');
+                btnLight.classList.remove('active');
+            }
+        }
+
+        const icon = document.getElementById('theme-toggle-icon');
+        const label = document.getElementById('theme-toggle-label');
+        if (tema === 'light') {
+            if (icon) icon.className = 'ph-bold ph-moon';
+            if (label) label.textContent = 'Modo Oscuro';
+        } else {
+            if (icon) icon.className = 'ph-bold ph-sun';
+            if (label) label.textContent = 'Modo Claro';
+        }
+
+        if (typeof window.actualizarTarjetasTemaAjustes === 'function') {
+            window.actualizarTarjetasTemaAjustes(tema);
+        }
+    };
+
+    window.actualizarBotonTema = window.actualizarControlesTema;
+
+    window.setAppTheme = function(nuevoTema) {
+        document.documentElement.setAttribute('data-theme', nuevoTema);
+        localStorage.setItem('scannor_theme', nuevoTema);
+        window.actualizarControlesTema(nuevoTema);
+        if (typeof mostrarNotificacion === 'function') {
+            mostrarNotificacion(nuevoTema === 'light' ? '☀️ Modo Claro activado' : '🌙 Modo Oscuro activado', 'info');
+        }
+    };
+
+    window.toggleAppTheme = function() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        window.setAppTheme(newTheme);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        window.actualizarControlesTema(savedTheme);
+    });
+
+    window.cambiarPanel = function(panelDestino) {
+        const paneles = ['analisis', 'resultados', 'personalizacion', 'ajedrez'];
         paneles.forEach(panel => {
             const vista = document.getElementById(`panel-${panel}`);
             const pestaña = document.getElementById(`tab-${panel}`);
             if (panel === panelDestino) {
                 if (vista) vista.classList.remove('hidden');
-                if (pestaña) pestaña.classList.add('active');
+                if (pestaña) {
+                    pestaña.classList.add('active');
+                    pestaña.setAttribute('aria-selected', 'true');
+                }
             } else {
                 if (vista) vista.classList.add('hidden');
-                if (pestaña) pestaña.classList.remove('active');
+                if (pestaña) {
+                    pestaña.classList.remove('active');
+                    pestaña.setAttribute('aria-selected', 'false');
+                }
             }
         });
+        if (panelDestino === 'resultados' && typeof window.cargarResultados === 'function') {
+            window.cargarResultados();
+        }
+        if (panelDestino === 'ajedrez' && typeof window.iniciarPanelAjedrez === 'function') {
+            window.iniciarPanelAjedrez();
+        }
+    };
+
+    setInterval(() => {
+        if (typeof window.cargarResultados === 'function') window.cargarResultados();
+    }, 2000);
+
+    if (window.WS_BASE_URL && window.STREAM_TOKEN) {
+        try {
+            const wsResultados = new WebSocket(`${window.WS_BASE_URL}/ws/failures?token=${window.STREAM_TOKEN}`);
+            wsResultados.onmessage = () => {
+                if (typeof window.cargarResultados === 'function') window.cargarResultados();
+            };
+        } catch(e) {}
     }
 
-    // --- CERRAR MODAL CON TECLA ESCAPE ---
     document.addEventListener('keydown', function(e) {
         const modalOverlay = document.getElementById('image-modal');
         if (e.key === 'Escape' && modalOverlay && modalOverlay.style.display === 'flex') {
-            cerrarModal(); // Llama a la función de resultados.html
+            if (typeof cerrarModal === "function") cerrarModal();
         }
     });
 
     document.addEventListener("DOMContentLoaded", function() {
-        
-        const btnStart = document.getElementById('btn-start');
-        const btnStop = document.getElementById('btn-stop');
-        const videoStream = document.getElementById('video-stream');
-        const placeholder = document.getElementById('camera-placeholder');
-        const camLabels = document.getElementById('cam-labels');
-
-        if(btnStart) {
-            btnStart.addEventListener('click', () => {
-                fetch(`${API_BASE_URL}/api/start`, { method: 'POST', headers: HEADERS_AUTH })
-                    .then(() => {
-                        if(placeholder) placeholder.style.display = 'none';
-                        if(videoStream) videoStream.classList.remove('hidden');
-                        const tiempoActual = new Date().getTime(); 
-                        if(videoStream) videoStream.src = `${API_BASE_URL}/video_feed?token=${STREAM_TOKEN}&t=${tiempoActual}`; 
-                        
-                        setTimeout(() => {
-                            fetch(`${API_BASE_URL}/api/estado-camaras`, { headers: HEADERS_AUTH })
-                                .then(res => res.json())
-                                .then(data => {
-                                    const conectadas = data.conectada;
-                                    if(!camLabels) return;
-                                    const labels = camLabels.querySelectorAll('.cam-label');
-                                    if(labels.length === 3) {
-                                        labels[0].style.display = conectadas.frontal ? 'block' : 'none';
-                                        labels[1].style.display = conectadas.lat_der ? 'block' : 'none';
-                                        labels[2].style.display = conectadas.lat_izq ? 'block' : 'none';
-                                        if(conectadas.frontal || conectadas.lat_der || conectadas.lat_izq) camLabels.classList.remove('hidden');
-                                    }
-                                }).catch(err => console.error(err));
-                        }, 1000); 
-                    }).catch(err => console.error(err));
-            });
-        }
-
-        if(btnStop) {
-            btnStop.addEventListener('click', () => {
-                fetch(`${API_BASE_URL}/api/stop`, { method: 'POST', headers: HEADERS_AUTH })
-                    .then(() => {
-                        if(videoStream) { videoStream.src = ""; videoStream.classList.add('hidden'); }
-                        if(camLabels) camLabels.classList.add('hidden'); 
-                        if(placeholder) placeholder.style.display = 'flex';
-                    }).catch(err => console.error(err));
-            });
-        }
-
         const tablaHistorial = document.getElementById("tabla-historial");
         const mensajeVacio = document.getElementById("mensaje-vacio");
-
-        // --- 1. LÓGICA DEL BOTÓN ARCHIVAR / PURGAR ---
         const btnLimpiar = document.getElementById('btn-limpiar');
+
         if (btnLimpiar) {
             btnLimpiar.addEventListener('click', () => {
                 const confirmar = confirm("⚠️ ATENCIÓN: Estás a punto de archivar el historial de esta sesión. ¿Deseas continuar?");
                 if (confirmar) {
                     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
-                    
-                    // A. Archivar en Base de Datos Central (Django)
                     fetch(`/api/archivar-sesion/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
                     .then(() => {
-                        // B. Limpiar memoria RAM en la Cámara (Edge)
-                        fetch(`${API_BASE_URL}/api/clear`, { method: 'DELETE', headers: HEADERS_AUTH });
-                        
-                        // C. Limpiar Interfaz y KPIs
+                        fetch(`${window.API_BASE_URL}/api/clear`, { method: 'DELETE', headers: window.HEADERS_AUTH });
                         if (tablaHistorial) tablaHistorial.innerHTML = "";
                         if (mensajeVacio) mensajeVacio.style.display = 'flex';
                         mostrarNotificacion("🗑️ Historial archivado", "info");
                         
-                        document.getElementById('kpi-total').innerText = "0";
-                        document.getElementById('kpi-ok').innerText = "0";
-                        document.getElementById('kpi-ng').innerText = "0";
-                        document.getElementById('kpi-tasa').innerText = "0%";
+                        ['kpi-total', 'kpi-ok', 'kpi-ng'].forEach(id => { if(document.getElementById(id)) document.getElementById(id).innerText = "0"; });
+                        if(document.getElementById('kpi-tasa')) document.getElementById('kpi-tasa').innerText = "0%";
                     }).catch(err => console.error(err));
                 }
             });
         }
-
-        // --- 2. WEBSOCKET Y CÁLCULO MATEMÁTICO DE KPIs ---
-        let socket;
-        function conectarWebSocket() {
-            socket = new WebSocket(`${WS_BASE_URL}/ws/failures?token=${STREAM_TOKEN}`);
-            
-            socket.onmessage = function(event) {
-                try {
-                    const datos = JSON.parse(event.data);
-                    const fallasArray = datos.failures;
-                    const totalInspecciones = fallasArray.length;
-
-                    if (totalInspecciones === 0 && mensajeVacio) {
-                        mensajeVacio.style.display = 'flex';
-                        if (tablaHistorial) tablaHistorial.innerHTML = "";
-                    } else if (mensajeVacio && totalInspecciones > 0) {
-                        mensajeVacio.style.display = 'none';
-                    }
-
-                    if (tablaHistorial && totalInspecciones > 0) {
-                        tablaHistorial.innerHTML = "";
-                        let countOK = 0, countNG = 0;
-
-                        fallasArray.forEach(falla => {
-                            let badgeHTML = '', estadoLogico = ''; 
-                            
-                            if (falla.estado === 'Aprobado' || falla.estado === 'Aprobado (Manual)') {
-                                countOK++; estadoLogico = 'aprobado';
-                                badgeHTML = falla.estado === 'Aprobado' ? `<span class="badge-success">Aprobado OK</span>` : `<span class="badge-success" style="background:#16a34a; color:white; border:none;">🧑‍🔧 Aprobado (Manual)</span>`;
-                            } else if (falla.estado === 'Rechazado (Auditado)') {
-                                countNG++; estadoLogico = 'rechazado';
-                                badgeHTML = `<span class="badge-error" style="background:#991b1b; color:white; border:none;">✅ Rechazado (Auditado)</span><span style="display:block; font-size:10px; color:#991b1b; margin-top:2px; font-weight: bold; text-transform: uppercase;">${falla.falla}</span>`;
-                            } else if (falla.estado === 'Incompleto' || falla.estado === 'Requiere_Revision') {
-                                countNG++; estadoLogico = 'revision';
-                                badgeHTML = `<span class="badge-warning">Revisión/Incompleto</span><span style="display:block; font-size:10px; color:#854d0e; margin-top:2px; font-weight: bold;">${falla.falla}</span>`;
-                            } else {
-                                countNG++; estadoLogico = 'rechazado';
-                                badgeHTML = `<span class="badge-error">${falla.estado}</span><span style="display:block; font-size:10px; color:#dc2626; margin-top:2px; font-weight: bold; text-transform: uppercase;">${falla.falla}</span>`;
-                            }
-
-                            const uid = falla.id || falla.uid;
-                            const filaHTML = `
-                                <tr id="fila-${uid}" data-estado="${estadoLogico}">
-                                    <td>
-                                        <span style="font-family: monospace; font-weight:600;">${uid}</span><br>
-                                        <span style="color: #2563eb; font-size: 11px; font-weight: bold;">LOTE: ${falla.lote}</span>
-                                    </td>
-                                    <td style="color: #6b7280; font-size: 12px;">${falla.timestamp}</td>
-                                    <td style="font-weight: 600; color: #4338ca;">${(parseFloat(falla.confianza) * 100).toFixed(1)}%</td>                                    
-                                    <td id="estado-${uid}">${badgeHTML}</td>
-                                    <td>
-                                        <button class="btn-ghost" style="padding: 4px 8px;" onclick="abrirModalAuditoria('${uid}', '${falla.lote}', '${falla.imagen}')">Auditar</button>
-                                    </td>
-                                </tr>`;
-                            tablaHistorial.insertAdjacentHTML('afterbegin', filaHTML);
-                        });
-
-                        // MATEMÁTICAS EN TIEMPO REAL
-                        const tasaAprobacion = totalInspecciones > 0 ? ((countOK / totalInspecciones) * 100).toFixed(1) : 0;
-
-                        const elTotal = document.getElementById('kpi-total');
-                        const elOk = document.getElementById('kpi-ok');
-                        const elNg = document.getElementById('kpi-ng');
-                        const elTasa = document.getElementById('kpi-tasa');
-                        const elBadge = document.getElementById("badge-resultados"); 
-
-                        if(elTotal) elTotal.innerText = totalInspecciones;
-                        if(elOk) elOk.innerText = countOK;
-                        if(elNg) elNg.innerText = countNG;
-                        if(elTasa) elTasa.innerText = `${tasaAprobacion}%`;
-                        if(elBadge) elBadge.innerText = totalInspecciones; 
-                    }
-                } catch (error) { console.error("Error WS:", error); }
-            };
-            socket.onclose = () => setTimeout(conectarWebSocket, 3000);
-        }
-        conectarWebSocket();
     });
 </script>
-</body>
-</html>

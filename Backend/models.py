@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+import os
 import secrets 
 from django.core.validators import RegexValidator 
 
@@ -40,9 +41,9 @@ class ModeloIA(models.Model):
         ('metales', 'Inspección de Metales (Rayones, Abolladuras)'),
         ('ladrillos', 'Inspección de Ladrillos/Bloques (Grietas, Poros)'),
         ('textiles', 'Inspección de Textiles (Desgarres, Manchas)'),
+        ('ajedrez', 'Conteo y Control de Lotes (Piezas de Ajedrez)'),
         ('general', 'Propósito General')
     )
-    # El Modelo ahora actúa como una "Carpeta Padre"
     nombre = models.CharField(max_length=100, unique=True, help_text="Ej. Detector de Metales Línea 1")
     tipo_industria = models.CharField(max_length=50, choices=INDUSTRIAS, default='general')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
@@ -51,8 +52,13 @@ class ModeloIA(models.Model):
         return f"{self.nombre} ({self.get_tipo_industria_display()})"
 
     @property
+    def es_ajedrez(self):
+        nombre_lower = (self.nombre or "").lower()
+        tipo_lower = (self.tipo_industria or "").lower()
+        return any(k in nombre_lower or k in tipo_lower for k in ['ajedrez', 'peon', 'pawn', 'chess'])
+
+    @property
     def version_activa(self):
-        # Retorna el archivo .pt que actualmente está en producción
         return self.versiones.filter(activa=True).order_by('-fecha_subida').first()
 
 class VersionModelo(models.Model):
@@ -65,31 +71,71 @@ class VersionModelo(models.Model):
     activa = models.BooleanField(default=True, help_text="Si es true, las cámaras descargarán este archivo vía OTA")
 
     class Meta:
-        unique_together = ('modelo', 'version') # Evita duplicar la versión v1.0 en el mismo modelo
+        unique_together = ('modelo', 'version')
 
     def save(self, *args, **kwargs):
         if self.activa:
-            # Apaga automáticamente las versiones anteriores del mismo modelo
             VersionModelo.objects.filter(modelo=self.modelo).update(activa=False)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.modelo.nombre} - {self.version}"
 
+def generar_token():
+    return secrets.token_hex(32)
+
 class Dispositivo(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name='dispositivos')
     nombre = models.CharField(max_length=100, help_text="Ej. Línea 1 - Ensamblaje Frontal")
     device_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
-    mac_address = models.CharField(max_length=17, unique=True, null=True, blank=True, validators=[mac_validator])
-    api_key = models.CharField(max_length=64, unique=True, editable=False)
+    mac_address = models.CharField(max_length=17, unique=False, null=True, blank=True, validators=[mac_validator])
     activo = models.BooleanField(default=True)
     ultimo_sync = models.DateTimeField(null=True, blank=True)
     modelo_asignado = models.ForeignKey(ModeloIA, on_delete=models.SET_NULL, null=True, blank=True)
+    modelo_operativo = models.BooleanField(default=False)
     ip_local = models.CharField(max_length=50, blank=True, null=True, help_text="Ej: 192.168.1.50:8001")
+    api_key = models.CharField(max_length=64, unique=True, editable=False, default=generar_token)
+    admin_key = models.CharField(max_length=64, unique=True, editable=False, default=generar_token)
+    stream_token = models.CharField(max_length=64, unique=True, editable=False, default=generar_token)
+
+    @property
+    def es_modelo_ajedrez(self):
+        if not self.modelo_asignado:
+            return False
+        return self.modelo_asignado.es_ajedrez
+
+    @property
+    def puerto_servicio(self):
+        if self.es_modelo_ajedrez:
+            return int(os.getenv("PORT_PAWN_COUNTER", "8003"))
+        if self.modelo_asignado:
+            nombre = (self.modelo_asignado.nombre or "").lower()
+            tipo = (self.modelo_asignado.tipo_industria or "").lower()
+            if any(k in nombre or k in tipo for k in ['bloque', 'ladrillo', 'inventario', 'inventory', 'block']):
+                return int(os.getenv("PORT_INVENTORY_COUNTING", "8002"))
+        return int(os.getenv("PORT_DEFECT_INSPECTION", "8001"))
+
+    @property
+    def ip_con_puerto(self):
+        default_host = os.getenv("DEFAULT_EDGE_HOST", "127.0.0.1")
+        if not self.ip_local:
+            return f"{default_host}:{self.puerto_servicio}"
+        ip_limpia = self.ip_local.strip()
+        host_part = ip_limpia.split("://")[-1].split("/")[0]
+        if ":" in host_part:
+            return ip_limpia
+        return f"{ip_limpia}:{self.puerto_servicio}"
 
     def save(self, *args, **kwargs):
         if not self.api_key:
             self.api_key = secrets.token_hex(32)
+        if self.ip_local:
+            self.ip_local = self.ip_local.strip()
+            host_part = self.ip_local.split("://")[-1].split("/")[0]
+            if ":" not in host_part:
+                self.ip_local = f"{self.ip_local}:{self.puerto_servicio}"
+                if 'update_fields' in kwargs and kwargs['update_fields'] and 'ip_local' not in kwargs['update_fields']:
+                    kwargs['update_fields'] = list(kwargs['update_fields']) + ['ip_local']
         super().save(*args, **kwargs)
 
     def __str__(self):

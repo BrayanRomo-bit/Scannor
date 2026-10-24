@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scannor Vision | Control de Conteo y Límites de Ajedrez</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-surface: #131B2E;
+            --bg-card: #1A243B;
+            --border: #2A3859;
+            --border-focus: #38BDF8;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --accent-cyan: #38BDF8;
+            --accent-blue: #2563EB;
+            --status-ok: #10B981;
+            --status-warning: #F59E0B;
+            --status-error: #EF4444;
+            --radius-lg: 14px;
+            --radius-md: 8px;
+            --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+            line-height: 1.5;
+        }
+
+        .dashboard-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            padding: 20px 28px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-card);
+        }
+
+        .brand-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .brand-icon {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+
+        .brand-title h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .brand-title p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .header-badges {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-live {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--status-ok);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-live::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--status-ok);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--status-ok);
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.2); }
+        }
+
+        .batch-banner {
+            padding: 16px 24px;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .batch-banner.in-progress {
+            background: rgba(56, 189, 248, 0.1);
+            border-color: rgba(56, 189, 248, 0.3);
+            color: var(--accent-cyan);
+        }
+
+        .batch-banner.completed {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: var(--status-ok);
+        }
+
+        .batch-banner.error {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: var(--status-error);
+            animation: alertGlow 1.5s infinite alternate;
+        }
+
+        @keyframes alertGlow {
+            0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.2); }
+            100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: var(--shadow-card);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 14px;
+        }
+
+        .panel-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pieces-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+            max-height: 420px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .piece-control-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: border-color 0.2s;
+        }
+
+        .piece-control-card:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .piece-name-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            text-transform: capitalize;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .piece-input-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .piece-input-group input[type="number"] {
+            background: var(--bg-base);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            padding: 6px 10px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .piece-input-group input[type="number"]:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .stepper-btn {
+            background: var(--border);
+            color: var(--text-primary);
+            border: none;
+            border-radius: var(--radius-md);
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .stepper-btn:hover {
+            background: var(--accent-blue);
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue), #0284c7);
+            color: #FFFFFF;
+            flex: 2;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.95;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--status-error);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            flex: 1;
+        }
+
+        .btn-danger:hover {
+            background: var(--status-error);
+            color: white;
+        }
+
+        .progress-cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+
+        .target-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .target-card.status-COMPLETADO {
+            border-left: 4px solid var(--status-ok);
+        }
+
+        .target-card.status-EXCEDIDO {
+            border-left: 4px solid var(--status-error);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        .target-card.status-PENDIENTE {
+            border-left: 4px solid var(--accent-cyan);
+        }
+
+        .target-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .target-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+
+        .target-card-counter {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .progress-bar-bg {
+            background: var(--bg-base);
+            height: 8px;
+            border-radius: 999px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        .fill-PENDIENTE { background: var(--accent-cyan); }
+        .fill-COMPLETADO { background: var(--status-ok); }
+        .fill-EXCEDIDO { background: var(--status-error); }
+
+        .error-log-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .error-log-box.active {
+            display: flex;
+        }
+
+        .error-item {
+            font-size: 13px;
+            color: #FCA5A5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .viewer-box {
+            background: #000000;
+            border-radius: var(--radius-md);
+            aspect-ratio: 4/3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+
+        .viewer-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .viewer-placeholder {
+            color: var(--text-muted);
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .audit-log {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 6px;
+        }
+
+        .log-entry {
+            color: var(--text-secondary);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding-bottom: 4px;
+        }
+
+        .log-entry .time { color: var(--accent-cyan); }
+        .log-entry .id { color: var(--status-warning); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    
+    <header>
+        <div class="brand-title">
+            <div class="brand-icon">♟</div>
+            <div>
+                <h1>Scannor Vision | Control de Conteo y Límites de Lotes</h1>
+                <p>Tracking de alta precisión con YOLOv8, ByteTrack y Roboflow Supervision (LineZone)</p>
+            </div>
+        </div>
+        <div class="header-badges">
+            <span class="badge badge-live">Motor IA Activo</span>
+            <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan);">Puerto 8003</span>
+        </div>
+    </header>
+
+    <div id="batchBanner" class="batch-banner in-progress">
+        <span id="batchBannerText">⏳ LOTE EN PROCESO: Configura o monitorea los límites de las piezas...</span>
+        <span id="batchTotalCount" style="font-family: 'JetBrains Mono';">Total contados: 0</span>
+    </div>
+
+    <div id="errorBox" class="error-log-box">
+        <strong style="color: var(--status-error); font-size: 13px;">⚠️ ALERTAS DETECTADAS EN LA BANDA TRANSPORTADORA:</strong>
+        <div id="errorList"></div>
+    </div>
+
+    <div class="dashboard-grid">
+        
+        <div class="panel-card">
+            <div class="panel-header">
+                <h2>⚙️ Configuración del Lote (Límites Simultáneos)</h2>
+                <span style="font-size: 12px; color: var(--text-muted);">Indica cuántas piezas deben pasar</span>
+            </div>
+
+            <div class="pieces-grid">
+                
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚪ Peón Blanco</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('peon_blanco', -1)">-</button>
+                        <input type="number" id="input_peon_blanco" value="5" min="0">
+                        <button class="stepper-btn" onclick="stepVal('peon_blanco', 1)">+</button>
+                    </div>
+                </div>
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚫ Peón Negro</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('peon_negro', -1)">-</button>
+                        <input type="number" id="input_peon_negro" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('peon_negro', 1)">+</button>
+                    </div>
+                </div>
+
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚪ Torre Blanca</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('torre_blanca', -1)">-</button>
+                        <input type="number" id="input_torre_blanca" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('torre_blanca', 1)">+</button>
+                    </div>
+                </div>
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚫ Torre Negra</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('torre_negra', -1)">-</button>
+                        <input type="number" id="input_torre_negra" value="6" min="0">
+                        <button class="stepper-btn" onclick="stepVal('torre_negra', 1)">+</button>
+                    </div>
+                </div>
+
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚪ Caballo Blanco</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('caballo_blanco', -1)">-</button>
+                        <input type="number" id="input_caballo_blanco" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('caballo_blanco', 1)">+</button>
+                    </div>
+                </div>
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚫ Caballo Negro</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('caballo_negro', -1)">-</button>
+                        <input type="number" id="input_caballo_negro" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('caballo_negro', 1)">+</button>
+                    </div>
+                </div>
+
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚪ Alfil Blanco</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('alfil_blanco', -1)">-</button>
+                        <input type="number" id="input_alfil_blanco" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('alfil_blanco', 1)">+</button>
+                    </div>
+                </div>
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚫ Alfil Negro</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('alfil_negro', -1)">-</button>
+                        <input type="number" id="input_alfil_negro" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('alfil_negro', 1)">+</button>
+                    </div>
+                </div>
+
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚪ Reina Blanca</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('reina_blanca', -1)">-</button>
+                        <input type="number" id="input_reina_blanca" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('reina_blanca', 1)">+</button>
+                    </div>
+                </div>
+                <div class="piece-control-card">
+                    <span class="piece-name-label">⚫ Reina Negra</span>
+                    <div class="piece-input-group">
+                        <button class="stepper-btn" onclick="stepVal('reina_negra', -1)">-</button>
+                        <input type="number" id="input_reina_negra" value="0" min="0">
+                        <button class="stepper-btn" onclick="stepVal('reina_negra', 1)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions-bar">
+                <button class="btn btn-primary" onclick="guardarLimites()">
+                    <span>💾</span> Guardar y Activar Lote
+                </button>
+                <button class="btn btn-danger" onclick="reiniciarLote()">
+                    <span>🔄</span> Reiniciar Lote
+                </button>
+            </div>
+
+            <div class="panel-header" style="margin-top: 10px;">
+                <h2>📊 Progreso de las Piezas Configuradas</h2>
+            </div>
+            <div id="progressCardsContainer" class="progress-cards-container">
+                
+            </div>
+        </div>
+
+        <div class="panel-card">
+            <div class="panel-header">
+                <h2>📹 Visor de Inferencia y Banda Transportadora</h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn" style="background: var(--bg-card); color: var(--accent-cyan); border: 1px solid var(--border);" onclick="toggleWebcam()">
+                        <span id="webcamBtnIcon">▶️</span> <span id="webcamBtnText">Iniciar Cámara</span>
+                    </button>
+                    <label class="btn" style="background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); cursor: pointer;">
+                        <span>📁</span> Subir Fotograma
+                        <input type="file" id="uploadFile" accept="image/*" style="display: none;" onchange="subirFotograma(this)">
+                    </label>
+                </div>
+            </div>
+
+            <div class="viewer-box" id="viewerBox">
+                <img id="annotatedImage" style="display: none;" alt="Inferencia Anotada">
+                <video id="webcamVideo" autoplay playsinline style="display: none; width: 100%; height: 100%; object-fit: contain;"></video>
+                <canvas id="captureCanvas" style="display: none;"></canvas>
+                <div class="viewer-placeholder" id="viewerPlaceholder">
+                    <span style="font-size: 36px;">📷</span>
+                    <span>Inicia la cámara o sube un fotograma para ver el tracking y la línea virtual</span>
+                </div>
+            </div>
+
+            <div class="panel-header">
+                <h2>📝 Registro de Cruces en Vivo</h2>
+                <span style="font-size: 12px; color: var(--text-muted);">Garantía anti-duplicados por track_id</span>
+            </div>
+            <div class="audit-log" id="auditLog">
+                <div class="log-entry">Sistema listo. Esperando cruce de piezas...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = window.location.origin;
+    let webcamStream = null;
+    let webcamInterval = null;
+    let isProcessing = false;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        cargarMetricas();
+        setInterval(cargarMetricas, 1000);
+    });
+
+    function stepVal(id, delta) {
+        const input = document.getElementById(`input_${id}`);
+        if (input) {
+            let val = parseInt(input.value || 0, 10) + delta;
+            input.value = Math.max(0, val);
+        }
+    }
+
+    async function guardarLimites() {
+        const piezas = [
+            'peon_blanco', 'peon_negro',
+            'torre_blanca', 'torre_negra',
+            'caballo_blanco', 'caballo_negro',
+            'alfil_blanco', 'alfil_negro',
+            'reina_blanca', 'reina_negra'
+        ];
+
+        const limits = {};
+        piezas.forEach(p => {
+            const input = document.getElementById(`input_${p}`);
+            const val = parseInt(input ? input.value : 0, 10);
+            if (val > 0) {
+                limits[p] = val;
+            }
+        });
+
+        try {
+            const res = await fetch(`${API_URL}/limits`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ limits, strict_mode: true })
+            });
+            if (res.ok) {
+                agregarLog("Límites de lote actualizados correctamente.");
+                cargarMetricas();
+            }
+        } catch (e) {
+            console.error("Error guardando límites:", e);
+        }
+    }
+
+    async function reiniciarLote() {
+        if (!confirm("¿Deseas reiniciar los contadores y alertas para iniciar un nuevo lote?")) return;
+        try {
+            const res = await fetch(`${API_URL}/reset`, { method: "POST" });
+            if (res.ok) {
+                agregarLog("Lote reiniciado a cero.");
+                cargarMetricas();
+            }
+        } catch (e) {
+            console.error("Error al reiniciar lote:", e);
+        }
+    }
+
+    async function cargarMetricas() {
+        try {
+            const res = await fetch(`${API_URL}/metrics`);
+            if (!res.ok) return;
+            const data = await res.json();
+            actualizarUI(data);
+        } catch (e) {
+            
+        }
+    }
+
+    function actualizarUI(metrics) {
+        const banner = document.getElementById("batchBanner");
+        const bannerText = document.getElementById("batchBannerText");
+        const totalCount = document.getElementById("batchTotalCount");
+        const errorBox = document.getElementById("errorBox");
+        const errorList = document.getElementById("errorList");
+        const progressContainer = document.getElementById("progressCardsContainer");
+
+        totalCount.textContent = `Total piezas cruzadas: ${metrics.total}`;
+
+        const batch = metrics.batch || {};
+        const errors = batch.error_messages || [];
+
+        banner.className = "batch-banner";
+        if (batch.status === "ERROR") {
+            banner.classList.add("error");
+            bannerText.innerHTML = "🚨 <strong>ERROR EN LOTE:</strong> Se detectaron anomalías (exceso o piezas no deseadas)";
+        } else if (batch.status === "COMPLETADO") {
+            banner.classList.add("completed");
+            bannerText.innerHTML = "✅ <strong>LOTE COMPLETADO:</strong> Todas las piezas requeridas alcanzaron la meta exacta";
+        } else {
+            banner.classList.add("in-progress");
+            bannerText.innerHTML = "⏳ <strong>LOTE EN PROCESO:</strong> Esperando piezas en la banda transportadora...";
+        }
+
+        if (errors.length > 0) {
+            errorBox.classList.add("active");
+            errorList.innerHTML = errors.map(err => `<div class="error-item">❌ ${err}</div>`).join("");
+        } else {
+            errorBox.classList.remove("active");
+            errorList.innerHTML = "";
+        }
+
+        const progressMap = batch.progress || {};
+        const keys = Object.keys(progressMap);
+
+        if (keys.length === 0) {
+            progressContainer.innerHTML = `<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">No hay límites configurados. Establece cantidades arriba para comenzar.</div>`;
+        } else {
+            progressContainer.innerHTML = keys.map(k => {
+                const item = progressMap[k];
+                const pct = Math.min(100, Math.round((item.current_count / item.target_count) * 100)) || 0;
+                let statusBadge = "";
+
+                if (item.status === "COMPLETADO") {
+                    statusBadge = `<span style="color: var(--status-ok);">COMPLETADO ✓</span>`;
+                } else if (item.status === "EXCEDIDO") {
+                    statusBadge = `<span style="color: var(--status-error);">¡EXCEDIDO! (${item.current_count}/${item.target_count})</span>`;
+                } else {
+                    statusBadge = `<span style="color: var(--text-secondary);">${item.current_count} de ${item.target_count}</span>`;
+                }
+
+                return `
+                    <div class="target-card status-${item.status}">
+                        <div class="target-card-header">
+                            <span class="target-card-title">${item.class_name.replace('_', ' ')}</span>
+                            <span class="target-card-counter">${statusBadge}</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill fill-${item.status}" style="width: ${pct}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+    }
+
+    function agregarLog(msg) {
+        const log = document.getElementById("auditLog");
+        const timeStr = new Date().toLocaleTimeString();
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = `<span class="time">[${timeStr}]</span> ${msg}`;
+        log.appendChild(entry);
+    }
+
+    async function toggleWebcam() {
+        const video = document.getElementById("webcamVideo");
+        const placeholder = document.getElementById("viewerPlaceholder");
+        const btnText = document.getElementById("webcamBtnText");
+        const btnIcon = document.getElementById("webcamBtnIcon");
+
+        if (webcamStream) {
+            
+            clearInterval(webcamInterval);
+            webcamStream.getTracks().forEach(t => t.stop());
+            webcamStream = null;
+            video.style.display = "none";
+            placeholder.style.display = "flex";
+            btnText.textContent = "Iniciar Cámara";
+            btnIcon.textContent = "▶️";
+        } else {
+            
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                video.srcObject = webcamStream;
+                video.style.display = "block";
+                placeholder.style.display = "none";
+                btnText.textContent = "Detener Cámara";
+                btnIcon.textContent = "⏹️";
+
+                webcamInterval = setInterval(capturarYEnviarFrame, 250);
+            } catch (err) {
+                alert("No se pudo acceder a la webcam: " + err.message);
+            }
+        }
+    }
+
+    async function capturarYEnviarFrame() {
+        if (isProcessing || !webcamStream) return;
+        const video = document.getElementById("webcamVideo");
+        const canvas = document.getElementById("captureCanvas");
+        const imgDisplay = document.getElementById("annotatedImage");
+
+        if (video.videoWidth === 0) return;
+
+        isProcessing = true;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const b64 = canvas.toDataURL("image/jpeg", 0.7);
+
+        try {
+            const res = await fetch(`${API_URL}/process-frame-base64`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image_base64: b64, return_annotated: true })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                actualizarUI(data.metrics);
+
+                if (data.annotated_image_base64) {
+                    imgDisplay.src = `data:image/jpeg;base64,${data.annotated_image_base64}`;
+                    imgDisplay.style.display = "block";
+                    video.style.display = "none";
+                }
+
+                if (data.newly_counted_ids && data.newly_counted_ids.length > 0) {
+                    agregarLog(`Cruce de línea detectado: <span class="id">IDs #${data.newly_counted_ids.join(', #')}</span>`);
+                }
+            }
+        } catch (e) {
+            console.error("Error enviando frame:", e);
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    async function subirFotograma(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const imgDisplay = document.getElementById("annotatedImage");
+        const placeholder = document.getElementById("viewerPlaceholder");
+        const video = document.getElementById("webcamVideo");
+
+        try {
+            const res = await fetch(`${API_URL}/process-frame?return_annotated=true`, {
+                method: "POST",
+                body: formData
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                actualizarUI(data.metrics);
+
+                if (data.annotated_image_base64) {
+                    imgDisplay.src = `data:image/jpeg;base64,${data.annotated_image_base64}`;
+                    imgDisplay.style.display = "block";
+                    placeholder.style.display = "none";
+                    video.style.display = "none";
+                }
+
+                if (data.newly_counted_ids && data.newly_counted_ids.length > 0) {
+                    agregarLog(`Fotograma procesado: <span class="id">Nuevos IDs #${data.newly_counted_ids.join(', #')}</span>`);
+                }
+            }
+        } catch (e) {
+            alert("Error subiendo fotograma: " + e.message);
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,17 +1,48 @@
-*.deb
-*.db
-*.sqlite3
-db.sqlite3
+# Archivos de entorno y secretos (NUNCA subir al repositorio)
+.env
+*.env
+.env.*
+!.env.example
+!microservices/.env.example
+!microservices/*/.env.example
 
-capturas_falla/
-media/dataset_curado/
-media/modelos_ia/
-*.zip
-*.pt
-
-dist/
-build/
-*.spec
+# Entornos virtuales
 env/
+venv/
+.venv/
+
+# Caché de Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# Bases de datos locales y buffers offline
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# Modelos IA pesados, capturas y archivos multimedia locales
+*.pt
+*.pt.*
+*.bak
+*.onnx
+*.engine
+weights/
+capturas_falla/
+media/
+staticfiles/
+
+# Paquetes compilados y binarios
+*.zip
+*.tar.gz
+*.deb
+*.spec
+build/
+dist/
+api-vision
+
+# Logs y archivos temporales
+*.log
+scratch/
+nano .gitignore

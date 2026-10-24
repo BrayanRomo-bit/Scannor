@@ -8,7 +8,6 @@
             <p style="font-size: 12px; color: #6b7280;">Administra el acceso de los empleados de cada fábrica al sistema ScannorQA.</p>
         </div>
         
-        <!-- BARRA DE BÚSQUEDA -->
         <div>
             <input type="text" id="buscador-usuarios" class="form-control" placeholder="🔍 Buscar por nombre, correo o empresa..." style="width: 300px; padding: 8px 12px;">
         </div>
@@ -26,7 +25,7 @@
         </thead>
         <tbody>
             {% for usuario in usuarios %}
-            <!-- Le ponemos una clase a la fila para que el JS la encuentre -->
+            
             <tr class="fila-usuario">
                 <td>
                     <strong style="color: #111827;">@{{ usuario.username }}</strong><br>
@@ -61,7 +60,6 @@
     </table>
 </div>
 
-<!-- SCRIPT DEL BUSCADOR -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const buscador = document.getElementById('buscador-usuarios');
@@ -71,10 +69,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const filas = document.querySelectorAll('.fila-usuario');
             
             filas.forEach(fila => {
-                // Obtenemos todo el texto de la fila (usuario, correo, empresa, etc.)
+                
                 const textoFila = fila.innerText.toLowerCase();
                 
-                // Si el texto de la fila incluye lo que escribimos, la mostramos, sino la ocultamos
                 if (textoFila.includes(textoBuscado)) {
                     fila.style.display = '';
                 } else {

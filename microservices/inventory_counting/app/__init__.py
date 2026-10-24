@@ -1,0 +1,1 @@
+"""Inventory Counting Microservice Package."""

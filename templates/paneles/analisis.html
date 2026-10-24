@@ -1,39 +1,434 @@
-<div class="panel layout-analisis" id="panel-analisis">
-  <div>
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">
-          <svg class="ic" style="width:15px;height:15px;color:#6b7280" viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="11" rx="2"/><polygon points="22,4 16,8 16,14 22,18"/></svg>
-          Vista previa de la cámara
-        </span>
-        <span style="font-size:11px;color:#9ca3af;">1080p · 30fps</span>
-      </div>
-      <div class="card-body">
-        <div class="camera-viewport-wide">
-          <div class="camera-live-indicator" style="z-index:15;"><div class="live-dot"></div> EN VIVO</div>
-          
-          <div class="cam-labels-container hidden" id="cam-labels">
-              <div class="cam-label">CAM 01: FRONTAL / LECTOR QR</div>
-              <div class="cam-label">CAM 02: LATERAL DER</div>
-              <div class="cam-label">CAM 03: LATERAL IZQ</div>
-          </div>
 
-          <img id="video-stream" src="" alt="Stream" class="hidden" />
-          
-          <div id="camera-placeholder" style="display: flex; flex-direction: column; align-items: center; gap:10px; z-index: 2;">
-            <svg class="camera-placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="11" rx="2"/><polygon points="22,4 16,8 16,14 22,18"/></svg>
-            <span class="camera-placeholder-text" style="color:#94a3b8;">Esperando inicialización de cámaras…</span>
-          </div>
+<div class="ana-container">
+
+    <div class="ana-header">
+        <div class="ana-header-left">
+            <div class="ana-header-icon">
+                <i class="ph-bold ph-pulse"></i>
+            </div>
+            <div>
+                <h1 class="ana-title">Consola de Análisis Óptico</h1>
+                <p class="ana-subtitle">Transmisión sincronizada de cámaras en tiempo real, detección de defectos y
+                    control de la inferencia Edge.</p>
+            </div>
         </div>
-        <div class="controls-row">
-          <button class="ctrl ctrl-start" id="btn-start"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" fill="currentColor" stroke="none"/></svg> Iniciar</button>
-          <button class="ctrl ctrl-pause" id="btn-pause"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/></svg> Pausar</button>
-          <button class="ctrl ctrl-stop" id="btn-stop"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" stroke="none"/></svg> Detener</button>
+
+        <div class="ana-header-status-pill">
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="header-pulse-indicator" class="live-dot"></span>
+                <span id="header-pulse-text" class="live-text">Motor Listo</span>
+            </div>
+            <div class="ana-pill-divider"></div>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                <i class="ph ph-calendar-blank"></i>
+                <span id="current-date" style="font-weight: 600;">Cargando...</span>
+                <span>·</span>
+                <span id="current-time" style="font-weight: 700; color: var(--accent-blue);">--:--</span>
+            </div>
         </div>
-      </div>
     </div>
-  </div>
-  <div class="analysis-col">
-    <!-- Espacio para futuros detalles de análisis en vivo -->
-  </div>
+
+    <div class="ana-dashboard-grid">
+
+        <div class="ana-panel-card">
+            <div class="ana-panel-header">
+                <div class="ana-panel-title-wrap">
+                    <div class="ana-panel-icon-box">
+                        <i class="ph-bold ph-video-camera"></i>
+                    </div>
+                    <div>
+                        <h2 class="ana-panel-title">Túnel de Captura en Vivo</h2>
+                    </div>
+                </div>
+
+                <div class="ana-view-selector">
+                    <button type="button" class="ana-view-btn active" onclick="cambiarLayoutCamaras('todas', this)">
+                        <i class="ph-bold ph-squares-four"></i> Túnel 3 Ángulos
+                    </button>
+                    <button type="button" class="ana-view-btn" onclick="cambiarLayoutCamaras('frontal', this)">
+                        Frontal
+                    </button>
+                    <button type="button" class="ana-view-btn" onclick="cambiarLayoutCamaras('lat-der', this)">
+                        Flanco Der
+                    </button>
+                    <button type="button" class="ana-view-btn" onclick="cambiarLayoutCamaras('lat-izq', this)">
+                        Flanco Izq
+                    </button>
+                </div>
+            </div>
+
+            <div id="ana-camera-layout" class="ana-camera-layout">
+
+                <div class="ana-cam-hero-row" id="card-stream-frontal">
+                    <div class="ana-cam-card">
+                        <div class="ana-cam-header">
+                            <div class="ana-cam-title-group">
+                                <span class="ana-cam-ch-pill">CH 01</span>
+                                <span class="ana-cam-name">Cámara 1 · Perspectiva Frontal & QR</span>
+                            </div>
+                            <div class="ana-cam-status-wrap">
+                                <span class="live-dot"></span>
+                                <span class="live-text">Detenido</span>
+                            </div>
+                        </div>
+                        <div class="ana-cam-feed-frame" style="max-height: 420px;">
+                            <img id="stream-frontal" class="video-stream hidden" src="" alt="Stream Frontal">
+                            <div class="ana-feed-standby">
+                                <div class="ana-reticle"><i class="ph ph-crosshair"></i></div>
+                                <span class="ana-standby-msg">Canal Frontal en Standby · Esperando Iniciar</span>
+                            </div>
+                            <span class="ana-hud-tag-top">PERSPECTIVA ANTERIOR / LECTURA QR</span>
+                            <span class="ana-hud-badge-bottom">CH1 · 640×480 · 30 FPS</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ana-cam-bottom-grid">
+
+                    <div class="ana-cam-card" id="card-stream-der">
+                        <div class="ana-cam-header">
+                            <div class="ana-cam-title-group">
+                                <span class="ana-cam-ch-pill">CH 02</span>
+                                <span class="ana-cam-name">Cámara 2 · Flanco Derecho</span>
+                            </div>
+                            <div class="ana-cam-status-wrap">
+                                <span class="live-dot"></span>
+                                <span class="live-text">Detenido</span>
+                            </div>
+                        </div>
+                        <div class="ana-cam-feed-frame">
+                            <img id="stream-lat-der" class="video-stream hidden" src="" alt="Stream Lateral Derecho">
+                            <div class="ana-feed-standby">
+                                <div class="ana-reticle"><i class="ph ph-arrows-out-line-vertical"></i></div>
+                                <span class="ana-standby-msg">Flanco Derecho en Standby</span>
+                            </div>
+                            <span class="ana-hud-tag-top">ARISTAS DERECHAS</span>
+                            <span class="ana-hud-badge-bottom">CH2 · LATERAL DER</span>
+                        </div>
+                    </div>
+
+                    <div class="ana-cam-card" id="card-stream-izq">
+                        <div class="ana-cam-header">
+                            <div class="ana-cam-title-group">
+                                <span class="ana-cam-ch-pill">CH 03</span>
+                                <span class="ana-cam-name">Cámara 3 · Flanco Izquierdo</span>
+                            </div>
+                            <div class="ana-cam-status-wrap">
+                                <span class="live-dot"></span>
+                                <span class="live-text">Detenido</span>
+                            </div>
+                        </div>
+                        <div class="ana-cam-feed-frame">
+                            <img id="stream-lat-izq" class="video-stream hidden" src="" alt="Stream Lateral Izquierdo">
+                            <div class="ana-feed-standby">
+                                <div class="ana-reticle"><i class="ph ph-arrows-in-line-vertical"></i></div>
+                                <span class="ana-standby-msg">Flanco Izquierdo en Standby</span>
+                            </div>
+                            <span class="ana-hud-tag-top">ARISTAS IZQUIERDAS</span>
+                            <span class="ana-hud-badge-bottom">CH3 · LATERAL IZQ</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <div class="ana-side-stack">
+
+            <div class="ana-panel-card">
+                <div class="ana-panel-header">
+                    <div class="ana-panel-title-wrap">
+                        <div class="ana-panel-icon-box" style="background: rgba(16, 185, 129, 0.12); color: #10b981;">
+                            <i class="ph-bold ph-power"></i>
+                        </div>
+                        <div>
+                            <h2 class="ana-panel-title">Control de Ejecución</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ana-control-body">
+                    
+                    <div class="ana-status-strip">
+                        <div class="ana-status-label-group">
+                            <span class="ana-status-title">Estado del Motor</span>
+                            <span class="ana-status-sub" id="engine-subtext">Inferencia en reposo</span>
+                        </div>
+                        <span id="status-badge" class="status-badge stopped">Detenido</span>
+                    </div>
+
+                    <div class="ana-control-buttons">
+                        <button type="button" id="btn-start" class="btn-success btn-block">
+                            <i class="ph-fill ph-play"></i> Iniciar Análisis
+                        </button>
+                        <button type="button" id="btn-stop" class="btn-danger btn-block">
+                            <i class="ph-fill ph-stop"></i> Detener Análisis
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ana-panel-card">
+                <div class="ana-panel-header">
+                    <div class="ana-panel-title-wrap">
+                        <div class="ana-panel-icon-box" style="background: rgba(99, 102, 241, 0.12); color: #818cf8;">
+                            <i class="ph-bold ph-cpu"></i>
+                        </div>
+                        <div>
+                            <h2 class="ana-panel-title">Telemetría de la Estación</h2>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 18px 20px;">
+                    <div class="telemetry-item">
+                        <span class="telemetry-label"><i class="ph ph-brain"></i> Modelo YOLO</span>
+                        <span class="telemetry-val accent">{{ dispositivo_activo.modelo_asignado.nombre|default:"Sin modelo asignado" }}</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label"><i class="ph ph-gauge"></i> Latencia IA</span>
+                        <span class="telemetry-val ok">&lt; 25 ms</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label"><i class="ph ph-broadcast"></i> Daemon Edge</span>
+                        <span class="telemetry-val ok">Puerto {{ dispositivo_activo.puerto_servicio|default:8001 }}</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label"><i class="ph ph-arrows-clockwise"></i> Sync Django</span>
+                        <span class="telemetry-val ok">Tiempo Real (1s)</span>
+                    </div>
+                    <div class="telemetry-item">
+                        <span class="telemetry-label"><i class="ph ph-barcode"></i> Lector QR</span>
+                        <span class="telemetry-val">Activo (CH 01)</span>
+                    </div>
+
+                    <div class="ana-telemetry-footer"
+                        style="margin-top: 14px; padding-top: 12px; border-top: 1px solid #1e293b; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 11px; color: #64748b;">¿Reasignar puertos USB?</span>
+                        <button type="button" onclick="cambiarPanel('personalizacion')"
+                            style="background: transparent; border: none; color: #60a5fa; font-size: 11px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 0;">
+                            Ajustes <i class="ph-bold ph-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
 </div>
+
+<script>
+    function updateHeaderClock() {
+        const now = new Date();
+        const dateEl = document.getElementById('current-date');
+        const timeEl = document.getElementById('current-time');
+        if (dateEl && timeEl) {
+            dateEl.textContent = now.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+            timeEl.textContent = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+    }
+    setInterval(updateHeaderClock, 1000);
+    updateHeaderClock();
+
+    function cambiarLayoutCamaras(vista, btn) {
+        const layout = document.getElementById('ana-camera-layout');
+        if (!layout) return;
+
+        document.querySelectorAll('.ana-view-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        layout.classList.remove('view-frontal', 'view-lat-der', 'view-lat-izq');
+        if (vista === 'frontal') layout.classList.add('view-frontal');
+        else if (vista === 'lat-der') layout.classList.add('view-lat-der');
+        else if (vista === 'lat-izq') layout.classList.add('view-lat-izq');
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const statusBadge = document.getElementById('status-badge');
+        const liveDots = document.querySelectorAll('.live-dot');
+        const liveTexts = document.querySelectorAll('.live-text');
+        const videoStreams = document.querySelectorAll('.video-stream');
+        const pulseIndicator = document.getElementById('header-pulse-indicator');
+        const pulseText = document.getElementById('header-pulse-text');
+        const engineSubtext = document.getElementById('engine-subtext');
+
+        function setVisualStateRunning() {
+            if (statusBadge) {
+                statusBadge.classList.remove('stopped');
+                statusBadge.classList.add('running');
+                statusBadge.innerText = 'En Análisis';
+            }
+            if (pulseIndicator) {
+                pulseIndicator.style.backgroundColor = '#10b981';
+                pulseIndicator.style.boxShadow = '0 0 8px #10b981';
+            }
+            if (pulseText) {
+                pulseText.textContent = 'En Línea · Analizando';
+                pulseText.style.color = '#34d399';
+            }
+            if (engineSubtext) engineSubtext.textContent = 'Inferencia y detección activas';
+
+            liveDots.forEach(dot => {
+                dot.style.backgroundColor = 'var(--accent-green)';
+                dot.style.boxShadow = '0 0 8px var(--accent-green)';
+            });
+            liveTexts.forEach(text => {
+                text.style.color = 'var(--accent-green)';
+                text.innerText = 'En línea';
+            });
+
+            const t = new Date().getTime();
+            const token = window.STREAM_TOKEN || '';
+            const baseUrl = window.API_BASE_URL || '';
+
+            const sFrontal = document.getElementById('stream-frontal');
+            const sLatDer = document.getElementById('stream-lat-der');
+            const sLatIzq = document.getElementById('stream-lat-izq');
+
+            function vincularStreamConProxyFallback(imgEl, camId) {
+                if (!imgEl) return;
+                let fallbackActivo = false;
+                let fallbackTimer = null;
+
+                const activarFallback = () => {
+                    if (fallbackActivo) return;
+                    fallbackActivo = true;
+                    if (fallbackTimer) {
+                        clearTimeout(fallbackTimer);
+                        fallbackTimer = null;
+                    }
+                    imgEl.onerror = null;
+                    console.warn(`[Stream ${camId}] Conexión directa no disponible. Activando relay proxy Django...`);
+                    imgEl.src = `/api/dispositivo/video-stream/${camId}/?t=${new Date().getTime()}`;
+                };
+
+                imgEl.onerror = activarFallback;
+
+                fallbackTimer = setTimeout(() => {
+                    if (!fallbackActivo && imgEl.naturalWidth === 0) {
+                        activarFallback();
+                    }
+                }, 4000);
+
+                imgEl.src = `${baseUrl}/video_feed/${camId}?token=${token}&t=${t}`;
+            }
+
+            vincularStreamConProxyFallback(sFrontal, 'frontal');
+            vincularStreamConProxyFallback(sLatDer, 'lat_der');
+            vincularStreamConProxyFallback(sLatIzq, 'lat_izq');
+
+            videoStreams.forEach(img => img.classList.remove('hidden'));
+        }
+
+        function setVisualStateStopped() {
+            if (statusBadge) {
+                statusBadge.classList.remove('running');
+                statusBadge.classList.add('stopped');
+                statusBadge.innerText = 'Detenido';
+            }
+            if (pulseIndicator) {
+                pulseIndicator.style.backgroundColor = '#64748b';
+                pulseIndicator.style.boxShadow = 'none';
+            }
+            if (pulseText) {
+                pulseText.textContent = 'Motor en Reposo';
+                pulseText.style.color = '#94a3b8';
+            }
+            if (engineSubtext) engineSubtext.textContent = 'Inferencia en reposo';
+
+            liveDots.forEach(dot => {
+                dot.style.backgroundColor = 'var(--text-muted)';
+                dot.style.boxShadow = 'none';
+            });
+            liveTexts.forEach(text => {
+                text.style.color = 'var(--text-muted)';
+                text.innerText = 'Detenido';
+            });
+
+            videoStreams.forEach(img => {
+                img.src = "";
+                img.classList.add('hidden');
+            });
+        }
+
+        async function ejecutarAccionEdge(accion, metodo = 'POST') {
+            
+            if (window.API_BASE_URL && window.HEADERS_AUTH) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000);
+                    const res = await fetch(`${window.API_BASE_URL}/api/${accion}`, {
+                        method: metodo,
+                        headers: window.HEADERS_AUTH,
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    if (res.ok) {
+                        return await res.json().catch(() => ({ ok: true }));
+                    }
+                } catch (e) {
+                    console.warn(`Intento directo a Máquina 1 (/api/${accion}) no disponible. Conectando vía Relay Django...`);
+                }
+            }
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+            const relayRes = await fetch('/api/dispositivo/control/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ action: accion, method: metodo })
+            });
+
+            if (!relayRes.ok) {
+                const errData = await relayRes.json().catch(() => ({}));
+                throw new Error(errData.error || `Error en servidor al comunicar con estación: ${relayRes.status}`);
+            }
+            return await relayRes.json();
+        }
+
+        ejecutarAccionEdge('health', 'GET')
+            .then(data => {
+                if (data && data.motor_activo === true) {
+                    setVisualStateRunning();
+                } else {
+                    setVisualStateStopped();
+                }
+            })
+            .catch(() => setVisualStateStopped());
+
+        if (btnStart) {
+            btnStart.addEventListener('click', () => {
+                ejecutarAccionEdge('start', 'POST')
+                    .then(() => {
+                        setVisualStateRunning();
+                        if (typeof mostrarNotificacion === "function") mostrarNotificacion("Motor de visión activado en Máquina 1", "success");
+                    })
+                    .catch(err => {
+                        console.error("Error al iniciar análisis:", err);
+                        if (typeof mostrarNotificacion === "function") mostrarNotificacion(err.message || "Error conectando con estación Edge", "error");
+                    });
+            });
+        }
+
+        if (btnStop) {
+            btnStop.addEventListener('click', () => {
+                ejecutarAccionEdge('stop', 'POST')
+                    .then(() => {
+                        setVisualStateStopped();
+                        if (typeof mostrarNotificacion === "function") mostrarNotificacion("Motor de visión detenido", "info");
+                    })
+                    .catch(err => {
+                        console.error("Error al detener análisis:", err);
+                        if (typeof mostrarNotificacion === "function") mostrarNotificacion(err.message || "Error al detener motor", "error");
+                    });
+            });
+        }
+    });
+</script>
